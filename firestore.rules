@@ -1,0 +1,132 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: posts
+// Document ID: {postId}
+// Fields:
+//   - title: string (required, 1-200 chars)
+//   - slug: string (required)
+//   - category: string (required)
+//   - description: string (required)
+//   - views: number (optional)
+//   - isActive: bool (required)
+//   - authorUid: string (required)
+//   - createdAt: timestamp (required)
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - email: string (required)
+//   - role: string (required, 'admin')
+//
+// Collection: categories
+// Document ID: {categoryId}
+// Fields:
+//   - name: string (required)
+//   - slug: string (required)
+//   - displayOrder: number (required)
+//   - isActive: bool (required)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.email == "clementegrinya@gmail.com");
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidPost(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.slug is string && data.slug.size() > 0 &&
+             data.category is string &&
+             data.description is string &&
+             data.isActive is bool;
+    }
+
+    function isValidPayment(data) {
+      return data.reference is string && data.reference.size() > 0 && data.reference.size() < 200 &&
+             data.documentType is string &&
+             data.documentId is string &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 200 &&
+             data.amount is number &&
+             data.status == 'success' &&
+             data.paidAt == request.time;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /posts/{postId} {
+      allow read: if true;
+      
+      // Allow unauthenticated users to increment views ONLY
+      // This is critical for the incrementViews function in posts.ts
+      allow update: if (
+        isValidId(postId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
+        (resource.data.views == null || request.resource.data.views == resource.data.views + 1)
+      ) || isAdmin();
+
+      allow create, delete: if isAdmin();
+    }
+
+    match /document_payments/{paymentId} {
+      allow create: if isValidPayment(request.resource.data);
+      allow read: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /subscribers/{subId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /socialLinks/{linkId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Default deny for everything else
+    match /{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

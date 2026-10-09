@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "A job vacancy, scholarship, or course opportunity.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The headline of the opportunity." },
+        "slug": { "type": "string", "description": "URL-friendly version of the title." },
+        "category": { "type": "string", "description": "The category slug." },
+        "description": { "type": "string", "description": "Detailed description in HTML/Markdown." },
+        "thumbnail": { "type": "string", "description": "URL to the featured image." },
+        "externalLink": { "type": "string", "description": "Link to the original source." },
+        "deadline": { "type": "string", "format": "date-time", "description": "Application deadline." },
+        "isFeatured": { "type": "boolean", "description": "Whether it shows in featured sections." },
+        "isActive": { "type": "boolean", "description": "Whether the post is published." },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Searchable keywords." },
+        "views": { "type": "number", "description": "Number of times the post has been viewed." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp." },
+        "authorUid": { "type": "string", "description": "UID of the admin who created it." }
+      },
+      "required": ["title", "slug", "category", "description", "isActive", "createdAt", "authorUid"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "A grouping for posts.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "description": { "type": "string" },
+        "displayOrder": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["name", "slug", "displayOrder", "isActive"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Admin user profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin"] },
+        "lastLogin": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "A payment record for a document download.",
+      "type": "object",
+      "properties": {
+        "reference": { "type": "string" },
+        "documentType": { "type": "string" },
+        "documentId": { "type": "string" },
+        "email": { "type": "string" },
+        "amount": { "type": "number" },
+        "promoCode": { "type": "string" },
+        "status": { "type": "string" },
+        "paidAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reference", "documentType", "documentId", "email", "amount", "status", "paidAt"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Collection of opportunities."
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Collection of categories."
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Admin user profiles."
+    },
+    "/document_payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Records of document purchases."
+    },
+    "/settings/documents": {
+      "schema": { "type": "object" },
+      "description": "Document pricing settings."
+    },
+    "/settings/monetization": {
+      "schema": "MonetizationConfig",
+      "description": "Ad configuration."
+    }
+  }
+}
