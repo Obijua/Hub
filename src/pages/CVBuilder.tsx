@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
 import { 
   User as UserIcon, 
@@ -65,6 +65,7 @@ const CVBuilder = () => {
   const [appliedPromo, setAppliedPromo] = useState<any>(null);
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { settings, loading: settingsLoading } = useDocumentSettings();
   const [suggestions, setSuggestions] = useState<{
     titles: string[];
@@ -302,6 +303,11 @@ const CVBuilder = () => {
   });
 
   const handleDownloadPDF = async () => {
+    if (!auth.currentUser) {
+      toast.error('Please sign in or create an account to download your document');
+      navigate('/admin/login?mode=signup', { state: { mode: 'signup', from: location.pathname } });
+      return;
+    }
     setIsGeneratingPDF(true);
     try {
       const previewEl = document.getElementById('cv-document-preview-inner') || document.getElementById('cv-document-preview');
@@ -362,6 +368,11 @@ const CVBuilder = () => {
   };
 
   const handlePayment = () => {
+    if (!auth.currentUser) {
+      toast.error('Please sign in or create an account to download your document');
+      navigate('/admin/login?mode=signup', { state: { mode: 'signup', from: location.pathname } });
+      return;
+    }
     const handler = (window as any).PaystackPop.setup({
       key: settings.payment.paystackPublicKey || 'pk_test_1234567890abcdef1234567890abcdef12345678',
       email: auth.currentUser?.email || email || 'user@email.com',

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Rocket, 
   FileText, 
@@ -18,7 +18,7 @@ import {
 import { useDocumentSettings } from '../hooks/useDocumentSettings';
 import { useDocumentPayment } from '../lib/payment';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 
@@ -31,6 +31,16 @@ const BundleBuilder = () => {
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
   const { settings, loading: settingsLoading } = useDocumentSettings();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleGetBundle = () => {
+    if (!auth.currentUser) {
+      toast.error('Please sign in or create an account to get the startup bundle');
+      navigate('/admin/login?mode=signup', { state: { mode: 'signup', from: location.pathname } });
+      return;
+    }
+    setShowEmailModal(true);
+  };
 
   useEffect(() => {
     const paidDocs = JSON.parse(localStorage.getItem('hj_paid_docs') || '{}');
@@ -275,7 +285,7 @@ const BundleBuilder = () => {
               </div>
 
               <button 
-                onClick={() => setShowEmailModal(true)}
+                onClick={handleGetBundle}
                 className="w-full py-5 bg-amber-500 text-white font-black rounded-2xl shadow-xl shadow-amber-500/30 flex items-center justify-center gap-3 hover:bg-amber-600 transition-all active:scale-95 mb-6"
               >
                 <Zap size={20} />

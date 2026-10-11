@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { 
   Building2, 
   Users, 
@@ -48,6 +48,7 @@ const ProposalBuilder = () => {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState<boolean>(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { settings, loading: settingsLoading } = useDocumentSettings();
 
   // Auth Listener
@@ -267,6 +268,11 @@ const ProposalBuilder = () => {
   });
 
   const handleDownloadPDF = async () => {
+    if (!auth.currentUser) {
+      toast.error('Please sign in or create an account to download your document');
+      navigate('/admin/login?mode=signup', { state: { mode: 'signup', from: location.pathname } });
+      return;
+    }
     const element = document.getElementById('proposal-document-preview');
     if (!element) {
       toast.error('Document element not found');
@@ -293,6 +299,11 @@ const ProposalBuilder = () => {
   };
 
   const handlePay = () => {
+    if (!auth.currentUser) {
+      toast.error('Please sign in or create an account to download your document');
+      navigate('/admin/login?mode=signup', { state: { mode: 'signup', from: location.pathname } });
+      return;
+    }
     // Pre-fill email from user profile if state is empty
     if (currentUser?.email && !email) {
       setEmail(currentUser.email);
