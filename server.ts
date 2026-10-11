@@ -31,7 +31,7 @@ async function startServer() {
       });
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           systemInstruction: systemInstruction 
@@ -41,7 +41,11 @@ async function startServer() {
       res.json({ text: response.text });
     } catch (error: any) {
       console.error("Gemini Proxy Error:", error);
-      res.status(500).json({ error: error.message || "Failed to generate content" });
+      const isRateLimit = error?.status === 'RESOURCE_EXHAUSTED' || error?.code === 429 || (error?.message && error.message.includes('429'));
+      const message = isRateLimit 
+        ? "Gemini API free tier rate limit reached (5 requests per minute). Please wait about a minute before trying again."
+        : (error.message || "Failed to generate content");
+      res.status(500).json({ error: message });
     }
   });
 
