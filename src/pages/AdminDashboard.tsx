@@ -33,6 +33,7 @@ import {
   Cell
 } from 'recharts';
 import { auth, db } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
 import { getAdminPosts, getSubscribersCount, getRecentSubscribers } from '../lib/posts';
 import { cn } from '../lib/utils';
 import { Subscriber, MonetizationConfig } from '../types';
@@ -123,8 +124,8 @@ export const AdminDashboard = () => {
 
   const handleLogout = async () => {
     try {
-      await auth.signOut();
-      navigate('/admin/login');
+      await signOut(auth);
+      navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
     }

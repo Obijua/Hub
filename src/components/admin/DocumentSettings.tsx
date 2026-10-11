@@ -60,6 +60,13 @@ export const DocumentSettings = ({
       coverLetter: true,
       masterToggle: true
     },
+    requirePayment: {
+      cv: true,
+      proposal: true,
+      businessPlan: true,
+      startupBundle: true,
+      coverLetter: true,
+    },
     payment: {
       paystackPublicKey: '',
       paystackSecretKey: '',
@@ -235,6 +242,44 @@ export const DocumentSettings = ({
               className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all"
             />
           </div>
+        </div>
+
+        <div className="mt-8 pt-8 border-t border-gray-100">
+          <h4 className="text-sm font-black text-gray-700 uppercase tracking-widest mb-4">
+            Require Payment to Download
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { key: 'cv', label: 'CV / Resume' },
+              { key: 'proposal', label: 'Business Proposal' },
+              { key: 'businessPlan', label: 'Business Plan' },
+              { key: 'startupBundle', label: 'Startup Bundle' },
+              { key: 'coverLetter', label: 'Cover Letter' },
+            ].map(({ key, label }) => (
+              <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-sm border border-gray-100">
+                <div>
+                  <p className="text-sm font-bold text-gray-800">{label}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {data.requirePayment?.[key] ? 'Payment required' : 'Free download'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleChange('requirePayment', key, !data.requirePayment?.[key])}
+                  className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0 ${
+                    data.requirePayment?.[key] ? 'bg-[#1E3B8B]' : 'bg-gray-300'
+                  }`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${
+                    data.requirePayment?.[key] ? 'right-1' : 'left-1'
+                  }`} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-3">
+            When OFF — users download for free with no payment prompt.
+            When ON — Paystack payment is required before download.
+          </p>
         </div>
 
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-gray-100 dark:border-gray-800">

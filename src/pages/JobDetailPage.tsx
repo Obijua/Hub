@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Share2, MapPin, Briefcase, Clock, ExternalLink, MessageCircle } from 'lucide-react';
+import { ChevronLeft, Share2, MapPin, Briefcase, ExternalLink, MessageCircle } from 'lucide-react';
 import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import { toast } from 'sonner';
-import InArticleAd from '../components/InArticleAd';
+import AdUnit from '../components/AdUnit';
 
 export const JobDetailPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -16,6 +16,7 @@ export const JobDetailPage = () => {
   const [job, setJob] = useState<Post | null>(stateJob || null);
   const [loading, setLoading] = useState(!stateJob);
   const [hasApplied, setHasApplied] = useState(false);
+  const [adConfig, setAdConfig] = useState<any>(null);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -39,6 +40,16 @@ export const JobDetailPage = () => {
   }, [jobId, stateJob]);
 
   useEffect(() => {
+    const fetchAdConfig = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'settings', 'monetization'));
+        if (snap.exists()) setAdConfig(snap.data());
+      } catch (e) {}
+    };
+    fetchAdConfig();
+  }, []);
+
+  useEffect(() => {
     if (!auth.currentUser || !job) return;
     const currentJobId = job.id || '';
     if (!currentJobId) { setHasApplied(false); return; }
@@ -59,8 +70,13 @@ export const JobDetailPage = () => {
   }, [job]);
 
   const pAny = job as any;
-  const companyName = pAny?.company || pAny?.employer || 
-    pAny?.companyName || pAny?.organizationName || '';
+  const companyName = 
+    pAny?.company || 
+    pAny?.companyName || 
+    pAny?.employer ||
+    pAny?.organizationName || 
+    pAny?.recruiterCompany || '';
+
   const locationText = job?.location || 'Nigeria';
   
   const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 
@@ -110,6 +126,86 @@ export const JobDetailPage = () => {
       .replace(/([a-zA-Z])<br\s*\/?>\s*([a-zA-Z])/gi, '$1$2')
       .replace(/&nbsp;/gi, ' ')
       .replace(/  +/g, ' ');
+  };
+
+  const renderDescriptionWithAds = (html: string) => {
+    if (!html) return null;
+
+    // No adConfig yet — render without ads
+    if (!adConfig) {
+      return (
+        <div
+          className="jd-content"
+          style={{ fontSize: '14px', color: '#1e293b', lineHeight: '1.7', width: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+          dangerouslySetInnerHTML={{ __html: cleanHtml(html) }}
+        />
+      );
+    }
+
+    // Check correct Firestore field names from admin
+    const adsEnabled = adConfig.masterSwitch && adConfig.articleAdsEnabled;
+
+    if (!adsEnabled) {
+      return (
+        <div
+          className="jd-content"
+          style={{ fontSize: '14px', color: '#1e293b', lineHeight: '1.7', width: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+          dangerouslySetInnerHTML={{ __html: cleanHtml(html) }}
+        />
+      );
+    }
+
+    // CORRECT field names matching Firestore/Admin exactly
+    const frequency = Number(adConfig.articleAdFrequency) || 3;
+    const maxAds = Number(adConfig.articleMaxAds) || 2;
+
+    // Split ONLY on block-level closing tags — NOT on </li>
+    const chunks = html
+      .split(/(?<=<\/p>|<\/h[1-6]>|<\/blockquote>|<\/ul>|<\/ol>)/)
+      .filter(chunk => chunk.trim().length > 0);
+
+    const result: React.ReactNode[] = [];
+    let adCount = 0;
+    let chunksSinceLastAd = 0;
+
+    chunks.forEach((chunk, index) => {
+      result.push(
+        <div
+          key={`chunk-${index}`}
+          className="jd-content"
+          style={{
+            fontSize: '14px',
+            color: '#1e293b',
+            lineHeight: '1.7',
+            width: '100%',
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word'
+          }}
+          dangerouslySetInnerHTML={{ __html: cleanHtml(chunk) }}
+        />
+      );
+
+      chunksSinceLastAd++;
+
+      if (
+        chunksSinceLastAd >= frequency &&
+        adCount < maxAds &&
+        index < chunks.length - 1
+      ) {
+        adCount++;
+        chunksSinceLastAd = 0;
+        result.push(
+          <AdUnit
+            key={`ad-${adCount}`}
+            slot={`article-inline-${adCount}`}
+            label="Advertisement"
+            className="my-3"
+          />
+        );
+      }
+    });
+
+    return result;
   };
 
   if (loading) {
@@ -265,8 +361,8 @@ export const JobDetailPage = () => {
 
       {/* Hero Card */}
       <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '16px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', marginBottom: companyName ? '4px' : '16px', lineHeight: '1.3', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{job.title}</h2>
-        {companyName && (
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', marginBottom: companyName && companyName !== 'Featured Employer' ? '4px' : '16px', lineHeight: '1.3', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{job.title}</h2>
+        {companyName && companyName !== 'Featured Employer' && (
           <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>{companyName}</p>
         )}
 
@@ -276,9 +372,6 @@ export const JobDetailPage = () => {
           </span>
           <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Briefcase size={12} /> {jobType}
-          </span>
-          <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Clock size={12} /> Full-time
           </span>
         </div>
 
@@ -290,15 +383,11 @@ export const JobDetailPage = () => {
       {/* About This Role */}
       <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '0 16px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: 'calc(100% - 32px)', boxSizing: 'border-box', overflow: 'hidden' }}>
         <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>About This Role</h3>
-        <div
-          className="jd-content"
-          style={{ fontSize: '14px', color: '#1e293b', lineHeight: '1.7', width: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-          dangerouslySetInnerHTML={{ __html: cleanHtml(pAny?.description || job?.description || '') }}
-        />
-      </div>
-
-      <div style={{ margin: '0 16px' }}>
-        <InArticleAd position={1} />
+        <div style={{ width: '100%' }}>
+          {renderDescriptionWithAds(
+            pAny?.description || job?.description || ''
+          )}
+        </div>
       </div>
 
       {/* Requirements */}
@@ -318,14 +407,14 @@ export const JobDetailPage = () => {
         </div>
       )}
 
-      <div style={{ margin: '0 16px' }}>
-        <InArticleAd position={2} />
-      </div>
-
       {/* Footer */}
       <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '24px', margin: '0 16px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', textAlign: 'center', width: 'calc(100% - 32px)', boxSizing: 'border-box' }}>
         <p style={{ fontSize: '17px', fontWeight: 700, color: '#0f172a' }}>Hub <span style={{ color: '#E8B736' }}>&</span> Jobs</p>
         <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '4px', lineHeight: '1.6' }}>Connecting top talent with exciting opportunities across Nigeria and beyond.</p>
+      </div>
+
+      <div style={{ margin: '0 16px' }}>
+        <AdUnit slot="jobdetail-footer" label="Advertisement" />
       </div>
 
       {/* Bottom Action Bar */}

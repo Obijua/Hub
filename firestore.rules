@@ -104,8 +104,19 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow write: if isAdmin();
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    match /applications/{appId} {
+      allow read: if isAuthenticated() && (resource.data.seekerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.seekerId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (resource.data.seekerId == request.auth.uid || isAdmin());
+    }
+
+    match /savedPosts/{savedId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     match /settings/{settingId} {

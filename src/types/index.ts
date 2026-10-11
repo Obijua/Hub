@@ -123,6 +123,7 @@ export interface BannerConfig {
 export interface UserProfile {
   uid: string;
   email: string;
+  name?: string;
   displayName?: string;
   fullName?: string;
   photoURL?: string;

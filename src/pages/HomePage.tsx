@@ -7,7 +7,7 @@ import {
   Bookmark, 
   ChevronRight 
 } from 'lucide-react';
-import { collection, query, orderBy, onSnapshot, getDocs, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, getDocs, where, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import AdUnit from '../components/AdUnit';
@@ -19,6 +19,7 @@ export const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
+  const [adConfig, setAdConfig] = useState<any>(null);
 
   const categories = ['All', 'Technology', 'Finance', 'Marketing', 'Design', 'Sales', 'Engineering'];
 
@@ -51,6 +52,16 @@ export const HomePage = () => {
       }
     };
     fetchUserInteractions();
+  }, []);
+
+  useEffect(() => {
+    const fetchAdConfig = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'settings', 'monetization'));
+        if (snap.exists()) setAdConfig(snap.data());
+      } catch (e) {}
+    };
+    fetchAdConfig();
   }, []);
 
   const toggleSave = async (e: React.MouseEvent, postId: string) => {
@@ -154,7 +165,7 @@ export const HomePage = () => {
             const salaryText = post.salary || 'Competitive';
 
             return (
-              <React.Fragment key={post.id}>
+              <div key={post.id || index}>
                 <div 
                   onClick={() => navigate(`/jobs/${post.id}`, { state: { job: post } })}
                   className="bg-white shadow-sm rounded-sm p-4 transition-all cursor-pointer hover:bg-slate-50/80"
@@ -211,10 +222,20 @@ export const HomePage = () => {
                     </button>
                   </div>
                 </div>
-                {(index + 1) % 3 === 0 && (
-                  <AdUnit slot={`homepage-infeed-${index}`} label="Advertisement" />
+
+                {/* In-feed ad injection with CORRECT field names */}
+                {adConfig?.masterSwitch && 
+                 adConfig?.homepageAdsEnabled && 
+                 Number(adConfig?.homepageAdFrequency) > 0 &&
+                 (index + 1) % Number(adConfig.homepageAdFrequency) === 0 &&
+                 Math.floor((index + 1) / Number(adConfig.homepageAdFrequency)) <= Number(adConfig.homepageMaxAds || 3) && (
+                  <AdUnit
+                    key={`home-ad-${index}`}
+                    slot={`homepage-infeed-${index}`}
+                    label="Advertisement"
+                  />
                 )}
-              </React.Fragment>
+              </div>
             );
           })}
         </div>

@@ -44,7 +44,7 @@ export const useDocumentPayment = ({
     reference: `CB_DOC_${documentId}_${Date.now()}`,
     email,
     amount: amount * 100, // Convert to kobo
-    publicKey: publicKey || 'pk_test_placeholder',
+    publicKey: publicKey || 'pk_test_1234567890abcdef1234567890abcdef12345678',
     metadata: {
       ...metadata,
       custom_fields: [

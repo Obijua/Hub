@@ -143,6 +143,13 @@ const CVBuilder = () => {
     localStorage.setItem('cb_cv_draft', JSON.stringify(formData));
   }, [formData]);
 
+  useEffect(() => {
+    // If admin disabled payment for CV, auto-mark as paid
+    if (settings?.requirePayment?.cv === false) {
+      setIsPaid(true);
+    }
+  }, [settings]);
+
   // Check auth on mount
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -356,7 +363,7 @@ const CVBuilder = () => {
 
   const handlePayment = () => {
     const handler = (window as any).PaystackPop.setup({
-      key: settings.payment.paystackPublicKey || 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxx',
+      key: settings.payment.paystackPublicKey || 'pk_test_1234567890abcdef1234567890abcdef12345678',
       email: auth.currentUser?.email || email || 'user@email.com',
       amount: Math.round(calculatePrice() * 100),
       currency: 'NGN',
@@ -1612,26 +1619,50 @@ Certifications: ${formData.certifications}
 
                 {/* Overlay / Action Card */}
                 {!isPaid ? (
-                  <div className="absolute inset-0 flex items-center justify-center p-6 z-20 bg-white/40 dark:bg-black/40 backdrop-blur-xs rounded-2xl">
-                    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center space-y-6">
-                      <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto">
-                        <Lock size={32} />
+                  settings?.requirePayment?.cv === false ? (
+                    // Free download — no payment needed
+                    <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-sm text-center space-y-4">
+                      <div className="w-14 h-14 bg-emerald-500 text-white rounded-sm flex items-center justify-center mx-auto text-2xl">
+                        🎉
                       </div>
                       <div>
-                        <h3 className="text-2xl font-black text-gray-900 dark:text-white">Unlock Your CV</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                          ₦{calculatePrice().toLocaleString()} one-time payment to download your professional CV
+                        <h3 className="text-xl font-black text-emerald-800">Free Download!</h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                          This document is currently free. Download it now.
                         </p>
                       </div>
-                      <button 
-                        onClick={handlePayment}
-                        className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm uppercase tracking-wider rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all"
+                      <button
+                        onClick={handleDownloadPDF}
+                        disabled={isGeneratingPDF}
+                        style={{ backgroundColor: '#1E3B8B', color: 'white', borderRadius: '4px', padding: '14px 24px', fontWeight: 700, fontSize: '14px', width: '100%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                       >
-                        Pay ₦{calculatePrice().toLocaleString()} to Download
+                        {isGeneratingPDF ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
+                        Download PDF Free
                       </button>
-                      <p className="text-xs text-gray-400">Secured by Paystack</p>
                     </div>
-                  </div>
+                  ) : (
+                    // Payment required — existing overlay card stays exactly as is
+                    <div className="absolute inset-0 flex items-center justify-center p-6 z-20 bg-white/40 dark:bg-black/40 backdrop-blur-xs rounded-2xl">
+                      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center space-y-6">
+                        <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto">
+                          <Lock size={32} />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-black text-gray-900 dark:text-white">Unlock Your CV</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                            ₦{calculatePrice().toLocaleString()} one-time payment to download your professional CV
+                          </p>
+                        </div>
+                        <button 
+                          onClick={handlePayment}
+                          className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm uppercase tracking-wider rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all"
+                        >
+                          Pay ₦{calculatePrice().toLocaleString()} to Download
+                        </button>
+                        <p className="text-xs text-gray-400">Secured by Paystack</p>
+                      </div>
+                    </div>
+                  )
                 ) : (
                   <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 p-8 rounded-3xl text-center space-y-6">
                     <div className="w-16 h-16 bg-emerald-500 text-white rounded-2xl flex items-center justify-center mx-auto text-2xl">

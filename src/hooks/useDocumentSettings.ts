@@ -22,6 +22,13 @@ export const useDocumentSettings = () => {
       coverLetter: true,
       masterToggle: true
     },
+    requirePayment: {
+      cv: true,
+      proposal: true,
+      businessPlan: true,
+      startupBundle: true,
+      coverLetter: true,
+    },
     payment: {
       paystackPublicKey: '',
       paystackSecretKey: '',
