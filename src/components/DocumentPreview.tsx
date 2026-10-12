@@ -17,12 +17,75 @@ interface DocumentPreviewProps {
   filename?: string;
 }
 
+export const ScaledPreviewWrapper = ({ children, isPaid, maxHeight }: { children: React.ReactNode; isPaid: boolean; maxHeight?: string }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const [wrapperWidth, setWrapperWidth] = React.useState<number>(794);
+  const [contentHeight, setContentHeight] = React.useState<number>(1100);
+
+  const DOC_WIDTH = 794;
+
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect) {
+          setWrapperWidth(entry.contentRect.width);
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  React.useEffect(() => {
+    if (!contentRef.current) return;
+    const updateHeight = () => {
+      if (contentRef.current) {
+        setContentHeight(contentRef.current.scrollHeight);
+      }
+    };
+    updateHeight();
+    const timer = setTimeout(updateHeight, 150);
+    return () => clearTimeout(timer);
+  }, [children]);
+
+  const scale = wrapperWidth > 0 ? Math.min(1, wrapperWidth / DOC_WIDTH) : 1;
+  const scaledHeight = contentHeight * scale;
+
+  return (
+    <div 
+      ref={containerRef} 
+      style={{ 
+        width: '100%', 
+        overflow: 'hidden', 
+        height: isPaid ? `${scaledHeight}px` : (maxHeight || '420px'),
+        position: 'relative' 
+      }}
+    >
+      <div 
+        ref={contentRef}
+        style={{
+          width: `${DOC_WIDTH}px`,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
 export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
   if (type === 'cv') {
     return (
-      <div className="bg-white p-10 font-sans text-gray-900 leading-relaxed shadow-lg border border-gray-100">
+      <div className="bg-white p-10 font-sans text-gray-900 leading-relaxed shadow-sm border border-gray-100">
         {/* Header */}
-        <div style={{ backgroundColor: '#1E3B8B' }} className="text-white p-8 rounded-xl mb-8 cv-section">
+        <div style={{ backgroundColor: '#1E3B8B' }} className="text-white p-8 rounded-sm mb-8 cv-section">
           <h1 className="text-4xl font-black mb-2 uppercase tracking-tight">{data.fullName || 'YOUR FULL NAME'}</h1>
           <p style={{ color: '#E8B736' }} className="font-bold text-xl mb-4">{data.professionalTitle || 'PROFESSIONAL TITLE'}</p>
           <div className="flex flex-wrap gap-4 text-sm opacity-90">
@@ -95,7 +158,7 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
             <p className="text-gray-400 text-sm italic">Education details will appear here</p>
           )}
           {data.nyscStatus && (
-            <div className="mt-4 p-3 bg-[#f7faff] rounded-lg border border-[#edf4fe] flex items-center gap-2">
+            <div className="mt-4 p-3 bg-[#f7faff] rounded-sm border border-[#edf4fe] flex items-center gap-2">
               <ShieldCheck className="w-4 h-4" style={{ color: '#1E3B8B' }} />
               <p className="text-sm font-bold text-gray-700">NYSC Status: <span style={{ color: '#1E3B8B' }}>{data.nyscStatus}</span></p>
             </div>
@@ -108,7 +171,7 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
             <h2 style={{ color: '#1E3B8B', borderColor: '#E8B736' }} className="font-black text-lg uppercase border-b-2 pb-1 mb-4 cv-section-title">Technical Skills</h2>
             <div className="flex flex-wrap gap-2">
               {(data.technicalSkills || []).length > 0 ? data.technicalSkills.map((skill: string, i: number) => (
-                <span key={i} className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-full">{skill}</span>
+                <span key={i} className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-sm">{skill}</span>
               )) : (
                 <span className="text-gray-400 text-xs italic">Technical skills</span>
               )}
@@ -118,7 +181,7 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
             <h2 style={{ color: '#1E3B8B', borderColor: '#E8B736' }} className="font-black text-lg uppercase border-b-2 pb-1 mb-4 cv-section-title">Soft Skills</h2>
             <div className="flex flex-wrap gap-2">
               {(data.softSkills || []).length > 0 ? data.softSkills.map((skill: string, i: number) => (
-                <span key={i} className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-full">{skill}</span>
+                <span key={i} className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-sm">{skill}</span>
               )) : (
                 <span className="text-gray-400 text-xs italic">Soft skills</span>
               )}
@@ -170,10 +233,10 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
 
   if (type === 'proposal') {
     return (
-      <div className="bg-white p-10 font-sans text-gray-900 leading-relaxed shadow-lg border border-gray-100">
+      <div className="bg-white p-10 font-sans text-gray-900 leading-relaxed shadow-sm border border-gray-100">
         {/* Cover Page */}
         <div className="text-center py-20 mb-12" style={{ borderBottom: '8px solid #1E3B8B' }}>
-          <div className="w-24 h-24 text-white rounded-full flex items-center justify-center mx-auto mb-8 text-4xl font-black" style={{ backgroundColor: '#1E3B8B' }}>
+          <div className="w-24 h-24 text-white rounded-sm flex items-center justify-center mx-auto mb-8 text-4xl font-black" style={{ backgroundColor: '#1E3B8B' }}>
             {data.businessName?.charAt(0) || 'B'}
           </div>
           <h1 className="text-5xl font-black mb-4 uppercase tracking-tighter" style={{ color: '#1E3B8B' }}>BUSINESS PROPOSAL</h1>
@@ -181,7 +244,7 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
           <p className="text-2xl font-bold text-gray-600 mb-2">Prepared for:</p>
           <p className="text-3xl font-black text-gray-900 mb-12 uppercase">{data.clientName || 'CLIENT NAME'}</p>
           
-          <div className="text-left max-w-md mx-auto bg-gray-50 p-8 rounded-2xl border border-gray-100">
+          <div className="text-left max-w-md mx-auto bg-gray-50 p-8 rounded-sm border border-gray-100">
             <p className="text-sm font-black uppercase mb-4 tracking-widest" style={{ color: '#1E3B8B' }}>Prepared by:</p>
             <p className="font-black text-xl text-gray-900">{data.businessName || 'YOUR BUSINESS NAME'}</p>
             <p className="text-gray-600 font-bold">{data.businessType || 'SERVICE TYPE'}</p>
@@ -208,11 +271,11 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="text-white" style={{ backgroundColor: '#1E3B8B' }}>
-                <th className="p-4 rounded-tl-lg">Service Description</th>
+                <th className="p-4 rounded-sm">Service Description</th>
                 <th className="p-4">Frequency</th>
                 <th className="p-4">Unit Price</th>
                 <th className="p-4">Qty</th>
-                <th className="p-4 rounded-tr-lg text-right">Total</th>
+                <th className="p-4 rounded-sm text-right">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -244,7 +307,7 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
         </div>
 
         {/* Terms */}
-        <div className="mb-12 p-8 bg-gray-50 rounded-2xl border border-gray-100">
+        <div className="mb-12 p-8 bg-gray-50 rounded-sm border border-gray-100">
           <h2 className="text-xl font-black uppercase mb-4" style={{ color: '#1E3B8B' }}>Terms & Conditions</h2>
           <ul className="space-y-2 text-sm text-gray-600 list-disc list-inside">
             <li>Payment Terms: <span className="font-bold text-gray-900">{data.paymentTerms}</span></li>
@@ -275,7 +338,7 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
 
   if (type === 'business-plan') {
     return (
-      <div className="bg-white p-10 font-sans text-gray-900 leading-relaxed shadow-lg border border-gray-100">
+      <div className="bg-white p-10 font-sans text-gray-900 leading-relaxed shadow-sm border border-gray-100">
         {/* Cover Page */}
         <div className="text-center py-32 mb-12">
           <h1 className="text-6xl font-black mb-4 uppercase tracking-tighter" style={{ color: '#1E3B8B' }}>{data.businessName || 'BUSINESS NAME'}</h1>
@@ -283,7 +346,7 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
           <div className="w-32 h-2 mx-auto mb-12" style={{ backgroundColor: '#1E3B8B' }} />
           <p className="text-xl text-gray-500 mb-20">{data.industry || 'Industry Type'} | {data.location || 'Location'}</p>
           
-          <div className="inline-block p-4 border-2 rounded-xl font-black text-sm uppercase tracking-widest" style={{ borderColor: '#1E3B8B', color: '#1E3B8B' }}>
+          <div className="inline-block p-4 border-2 rounded-sm font-black text-sm uppercase tracking-widest" style={{ borderColor: '#1E3B8B', color: '#1E3B8B' }}>
             BoI / SMEDAN / NIRSAL Standard Format
           </div>
         </div>
@@ -306,11 +369,11 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
           <section>
             <h2 className="text-2xl font-black uppercase pb-2 mb-6" style={{ color: '#1E3B8B', borderBottom: '4px solid #E8B736' }}>1. Executive Summary</h2>
             <div className="grid grid-cols-2 gap-8 mb-6">
-              <div className="bg-gray-50 p-4 rounded-xl">
+              <div className="bg-gray-50 p-4 rounded-sm">
                 <p className="text-xs font-black text-gray-400 uppercase mb-1">Business Stage</p>
                 <p className="font-bold" style={{ color: '#1E3B8B' }}>{data.businessStage}</p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-xl">
+              <div className="bg-gray-50 p-4 rounded-sm">
                 <p className="text-xs font-black text-gray-400 uppercase mb-1">Registration</p>
                 <p className="font-bold" style={{ color: '#1E3B8B' }}>{data.registrationStatus}</p>
               </div>
@@ -334,7 +397,7 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
                 <h3 className="font-black uppercase text-sm mb-2" style={{ color: '#1E3B8B' }}>Core Values</h3>
                 <div className="flex flex-wrap gap-2">
                   {data.coreValues?.map((val: string, i: number) => (
-                    <span key={i} className="px-3 py-1 bg-blue-50 text-xs font-bold rounded-full" style={{ color: '#1E3B8B' }}>{cleanAIResponse(val)}</span>
+                    <span key={i} className="px-3 py-1 bg-blue-50 text-xs font-bold rounded-sm" style={{ color: '#1E3B8B' }}>{cleanAIResponse(val)}</span>
                   ))}
                 </div>
               </div>
@@ -353,16 +416,16 @@ export const DocumentHTML = ({ data, type }: { data: any; type: string }) => {
           <section>
             <h2 className="text-2xl font-black uppercase pb-2 mb-6" style={{ color: '#1E3B8B', borderBottom: '4px solid #E8B736' }}>4. Financial Plan</h2>
             <div className="grid grid-cols-2 gap-8 mb-8">
-              <div className="text-white p-6 rounded-2xl" style={{ backgroundColor: '#1E3B8B' }}>
+              <div className="text-white p-6 rounded-sm" style={{ backgroundColor: '#1E3B8B' }}>
                 <p className="text-xs font-black opacity-60 uppercase mb-1">Capital Required</p>
                 <p className="text-3xl font-black">₦{Number(data.capitalRequired || 0).toLocaleString()}</p>
               </div>
-              <div className="text-white p-6 rounded-2xl" style={{ backgroundColor: '#E8B736' }}>
+              <div className="text-white p-6 rounded-sm" style={{ backgroundColor: '#E8B736' }}>
                 <p className="text-xs font-black opacity-60 uppercase mb-1">Loan Requested</p>
                 <p className="text-3xl font-black">₦{Number(data.loanAmount || 0).toLocaleString()}</p>
               </div>
             </div>
-            <div className="bg-gray-50 p-8 rounded-2xl border border-gray-100">
+            <div className="bg-gray-50 p-8 rounded-sm border border-gray-100">
               <h3 className="font-black uppercase text-sm mb-4" style={{ color: '#1E3B8B' }}>3-Year Revenue Projections</h3>
               <table className="w-full text-left">
                 <thead>
@@ -499,7 +562,7 @@ export const DocumentPreview = ({
 
   return (
     <div className="relative w-full">
-      <div className="no-print-message p-8 text-center bg-red-50 text-red-600 font-bold rounded-2xl mb-8">
+      <div className="no-print-message p-8 text-center bg-red-50 text-red-600 font-bold rounded-sm mb-8">
         Printing is disabled for previews. Please unlock the document to download or print.
       </div>
 
@@ -516,19 +579,16 @@ export const DocumentPreview = ({
           msUserSelect: 'none',
           WebkitTouchCallout: 'none',
         } : {}}
-        className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white shadow-lg"
+        className="relative overflow-hidden rounded-sm border border-gray-200 dark:border-gray-700 bg-white shadow-sm"
       >
         {/* THE DOCUMENT */}
         <div
           id={`${documentType}-document-preview`}
           className={!isPaid ? "document-preview-locked" : ""}
-          style={!isPaid ? {
-            maxHeight: '420px',
-            overflow: 'hidden',
-            position: 'relative',
-          } : {}}
         >
-          <DocumentHTML data={documentData} type={documentType} />
+          <ScaledPreviewWrapper isPaid={isPaid} maxHeight="420px">
+            <DocumentHTML data={documentData} type={documentType} />
+          </ScaledPreviewWrapper>
         </div>
 
         {!isPaid && (
@@ -582,10 +642,10 @@ export const DocumentPreview = ({
         {!isPaid && (
           <div className="relative z-30 bg-white dark:bg-gray-900 px-6 pb-8 pt-4 text-center border-t border-gray-100">
             <div className="relative inline-block mb-4">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-xl" style={{ backgroundColor: '#1E3B8B' }}>
+              <div className="w-16 h-16 rounded-sm flex items-center justify-center mx-auto shadow-xl" style={{ backgroundColor: '#1E3B8B' }}>
                 <Lock className="text-white" size={32} />
               </div>
-              <div className="absolute inset-0 rounded-full opacity-20 animate-ping" style={{ backgroundColor: '#1E3B8B' }}/>
+              <div className="absolute inset-0 rounded-sm opacity-20 animate-ping" style={{ backgroundColor: '#1E3B8B' }}/>
             </div>
 
             <h3 className="font-black text-gray-900 dark:text-white text-xl mb-2">
@@ -620,7 +680,7 @@ export const DocumentPreview = ({
 
             <button
               onClick={onPayClick}
-              className="w-full max-w-xs py-4 text-white font-black rounded-2xl text-base shadow-xl hover:bg-[#162d6e] active:scale-95 transition-all mx-auto block"
+              className="w-full max-w-xs py-4 text-white font-black rounded-sm text-base shadow-xl hover:bg-[#162d6e] active:scale-95 transition-all mx-auto block"
               style={{ backgroundColor: '#1E3B8B' }}
             >
               Unlock & Download — ₦{price.toLocaleString()}
@@ -636,7 +696,7 @@ export const DocumentPreview = ({
 
       {isPaid && paymentRef && (
         <div className="mt-8 space-y-6">
-          <div className="text-center py-8 bg-green-50 dark:bg-green-900/10 rounded-3xl border border-green-100 dark:border-green-900/20">
+          <div className="text-center py-8 bg-green-50 dark:bg-green-900/10 rounded-sm border border-green-100 dark:border-green-900/20">
             <div className="text-6xl mb-4 animate-bounce">🎉</div>
             <h3 className="font-black text-xl mb-2" style={{ color: '#1E3B8B' }}>
               Payment Successful!
@@ -650,7 +710,7 @@ export const DocumentPreview = ({
             
             <button
               onClick={() => downloadAsPDF(`${documentType}-document-preview`, filename)}
-              className="w-full max-w-xs py-4 text-white font-black rounded-2xl text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto"
+              className="w-full max-w-xs py-4 text-white font-black rounded-sm text-base shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 mx-auto"
               style={{ backgroundColor: '#1E3B8B' }}
             >
               <Download size={20} />

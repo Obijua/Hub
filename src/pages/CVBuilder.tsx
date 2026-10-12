@@ -25,7 +25,7 @@ import {
   Tag as TagIcon,
   Download
 } from 'lucide-react';
-import { DocumentHTML, DocumentPreview } from '../components/DocumentPreview';
+import { DocumentHTML, DocumentPreview, ScaledPreviewWrapper } from '../components/DocumentPreview';
 import { useDocumentPayment } from '../lib/payment';
 import { generateWithGemini } from '../lib/gemini';
 import { toast } from 'sonner';
@@ -57,6 +57,7 @@ const CVBuilder = () => {
   const [softSkillSearch, setSoftSkillSearch] = useState('');
   const [certInput, setCertInput] = useState('');
   const [langInput, setLangInput] = useState('');
+  const [techSkillInput, setTechSkillInput] = useState('');
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [email, setEmail] = useState('');
@@ -127,31 +128,25 @@ const CVBuilder = () => {
 
   useEffect(() => {
     if (!hasMounted) return;
-    // If user edits key fields after paying, require new payment
-    // Only reset if they actually changed content (not on initial load)
     if (isPaid) {
       setIsPaid(false);
       setPaymentRef('');
-      // Remove from localStorage paid docs
       const paidDocs = JSON.parse(localStorage.getItem('hj_paid_docs') || '{}');
       delete paidDocs[formData.id];
       localStorage.setItem('hj_paid_docs', JSON.stringify(paidDocs));
     }
   }, [formData.fullName, formData.professionalTitle, formData.summary]);
 
-  // Auto-save progress
   useEffect(() => {
     localStorage.setItem('cb_cv_draft', JSON.stringify(formData));
   }, [formData]);
 
   useEffect(() => {
-    // If admin disabled payment for CV, auto-mark as paid
     if (settings?.requirePayment?.cv === false) {
       setIsPaid(true);
     }
   }, [settings]);
 
-  // Check auth on mount
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
@@ -161,7 +156,6 @@ const CVBuilder = () => {
     return () => unsub();
   }, []);
 
-  // Check if already paid
   useEffect(() => {
     const paidDocs = JSON.parse(localStorage.getItem('hj_paid_docs') || '{}');
     if (formData.id && paidDocs[formData.id]?.paid) {
@@ -241,7 +235,6 @@ const CVBuilder = () => {
       }
 
       try {
-        // Save complete document to Firestore
         const docData = {
           reference: reference,
           userId: auth.currentUser?.uid || 'guest',
@@ -261,7 +254,6 @@ const CVBuilder = () => {
           docData
         );
 
-        // Save to localStorage with the Firestore doc ID
         const paidDocs = JSON.parse(
           localStorage.getItem('hj_paid_docs') || '{}'
         );
@@ -280,7 +272,6 @@ const CVBuilder = () => {
         setShowSuccess(true);
         setShowEmailModal(false);
 
-        // Scroll to top of preview
         window.scrollTo({ top: 0, behavior: 'smooth' });
         
         confetti({
@@ -423,7 +414,6 @@ Certifications: ${formData.certifications}
     toast.success('CV text copied to clipboard!');
   };
 
-  // AI Functions
   const suggestTitles = async () => {
     if (!formData.fullName) return toast.error("Enter your name first");
     setIsGenerating('titles');
@@ -615,31 +605,97 @@ Certifications: ${formData.certifications}
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-6">
         <div className="text-center max-w-md">
-          <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-400">
+          <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-sm flex items-center justify-center mx-auto mb-6 text-gray-400">
             <FileText size={40} />
           </div>
           <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-4">CV Builder Offline</h2>
           <p className="text-gray-500 dark:text-gray-400 mb-8">This builder is currently unavailable. Please check back later.</p>
-          <Link to="/documents" className="px-8 py-4 bg-primary text-white font-black rounded-2xl">Back to Documents</Link>
+          <Link to="/documents" className="px-8 py-4 bg-primary text-white font-black rounded-sm">Back to Documents</Link>
         </div>
       </div>
     );
   }
 
+  const inputStyle = {
+    width: '100%',
+    minHeight: '48px',
+    fontSize: '16px',
+    border: '1px solid #E2E8F0',
+    background: '#fff',
+    borderRadius: '2px',
+    padding: '12px',
+    outline: 'none',
+    color: '#0f172a'
+  };
+
+  const textareaStyle = {
+    width: '100%',
+    minHeight: '120px',
+    fontSize: '16px',
+    border: '1px solid #E2E8F0',
+    background: '#fff',
+    borderRadius: '2px',
+    padding: '12px',
+    outline: 'none',
+    color: '#0f172a',
+    resize: 'none' as const
+  };
+
+  const selectStyle = {
+    width: '100%',
+    minHeight: '48px',
+    fontSize: '16px',
+    border: '1px solid #E2E8F0',
+    background: '#fff',
+    borderRadius: '2px',
+    padding: '12px',
+    outline: 'none',
+    color: '#0f172a'
+  };
+
+  const labelStyle = {
+    fontSize: '12px',
+    textTransform: 'uppercase' as const,
+    fontWeight: 900,
+    color: '#64748b',
+    marginBottom: '6px',
+    display: 'block'
+  };
+
+  const cardStyle = {
+    background: '#fff',
+    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+    borderRadius: '2px',
+    padding: '16px',
+    border: '1px solid #E2E8F0',
+    width: '100%',
+    maxWidth: '430px',
+    margin: '0 auto'
+  };
+
+  const subCardStyle = {
+    background: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+    borderRadius: '2px',
+    padding: '12px',
+    position: 'relative' as const,
+    marginBottom: '12px'
+  };
+
   return (
-    <div className="min-h-screen pb-24" style={{ backgroundColor: '#dde3f0' }}>
+    <div className="min-h-screen pb-24" style={{ backgroundColor: '#dde3f0', paddingLeft: '12px', paddingRight: '12px' }}>
       {settings.payment.testMode && (
-        <div className="bg-amber-500 text-white py-2 px-4 text-center font-black text-[10px] tracking-widest uppercase flex items-center justify-center space-x-2">
+        <div className="bg-amber-500 text-white py-2 px-4 text-center font-black text-[10px] tracking-widest uppercase flex items-center justify-center space-x-2 rounded-sm mb-4">
           <AlertTriangle size={12} />
           <span>Test Mode Enabled</span>
         </div>
       )}
 
       {/* 1. TOP NAV */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-6 py-4 sticky top-0 z-[100] backdrop-blur-md bg-white/80 dark:bg-gray-900/80">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-3 py-4 sticky top-0 z-[100] backdrop-blur-md bg-white/80 dark:bg-gray-900/80 rounded-sm mb-4" style={{ maxWidth: '430px', margin: '0 auto 16px auto' }}>
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
+             <div className="w-10 h-10 bg-primary rounded-sm flex items-center justify-center text-white shadow-lg shadow-primary/20">
                <FileText size={20} />
              </div>
              <div>
@@ -648,46 +704,49 @@ Certifications: ${formData.certifications}
              </div>
           </div>
           <button 
+            type="button"
             onClick={() => localStorage.setItem('cb_cv_draft', JSON.stringify(formData))}
-            className="px-4 py-2 bg-gray-50 dark:bg-gray-800 text-[10px] font-black uppercase tracking-widest text-primary rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm"
+            className="px-4 py-2 bg-gray-50 dark:bg-gray-800 text-[10px] font-black uppercase tracking-widest text-primary rounded-sm hover:bg-primary hover:text-white transition-all shadow-sm"
           >
             Save Draft
           </button>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-6 pt-8">
+      <div style={{ maxWidth: '430px', margin: '0 auto' }}>
         {/* 2. PROGRESS BAR */}
-        <div className="flex justify-between items-center mb-10 h-1 bg-gray-100 dark:bg-gray-800 rounded-full relative">
+        <div className="flex justify-between items-center mb-6 h-1 bg-gray-200 dark:bg-gray-800 rounded-sm relative">
           <div 
-            className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-out rounded-full"
+            className="absolute top-0 left-0 h-full bg-primary transition-all duration-500 ease-out rounded-sm"
             style={{ width: `${((step - 1) / (steps.length - 1)) * 100}%` }}
           />
           {steps.map((s) => (
             <button
               key={s.id}
+              type="button"
               onClick={() => setStep(s.id)}
-              className={`w-8 h-8 rounded-full flex items-center justify-center z-10 transition-all ${
-                step >= s.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+              className={`w-7 h-7 rounded-sm flex items-center justify-center z-10 transition-all text-xs font-bold ${
+                step >= s.id ? 'bg-primary text-white shadow-sm' : 'bg-gray-200 dark:bg-gray-800 text-gray-500'
               }`}
             >
-              <s.icon size={14} />
+              {s.id}
             </button>
           ))}
         </div>
 
         {/* 3. STEP HEADER */}
-        <div className="mb-8 flex justify-between items-end">
+        <div className="mb-6 flex justify-between items-end">
           <div>
             <span className="text-[10px] font-black text-primary tracking-[0.2em] uppercase">
               STEP {step} OF 5: {steps[step - 1].title.toUpperCase()}
             </span>
-            <h2 className="text-2xl font-black text-gray-900 dark:text-white mt-2 tracking-tight">
+            <h2 className="text-xl font-black text-gray-900 dark:text-white mt-1 tracking-tight">
               {steps[step - 1].title}
             </h2>
           </div>
           {step === 1 && (
             <button
+              type="button"
               onClick={() => {
                 const newId = `cv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 localStorage.removeItem('cb_cv_draft');
@@ -697,7 +756,7 @@ Certifications: ${formData.certifications}
                 setStep(1);
                 toast.success('Started a new CV');
               }}
-              className="text-sm text-emerald-500 font-bold hover:underline"
+              className="text-xs text-emerald-600 font-bold hover:underline"
             >
               Start fresh &rarr;
             </button>
@@ -705,7 +764,7 @@ Certifications: ${formData.certifications}
         </div>
 
         {/* 4. FORM CONTENT */}
-        <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/20 dark:shadow-none">
+        <div style={cardStyle}>
           <AnimatePresence mode="wait">
             {step === 1 && (
               <motion.div 
@@ -713,17 +772,10 @@ Certifications: ${formData.certifications}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="space-y-6"
+                className="space-y-4"
               >
                 {/* Card 1: Personal Details */}
-                <div style={{
-                  background: 'white',
-                  borderRadius: '4px',
-                  padding: '20px',
-                  marginBottom: '16px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                  border: '1px solid #e2e8f0'
-                }}>
+                <div>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -735,7 +787,7 @@ Certifications: ${formData.certifications}
                     <div style={{
                       width: '34px',
                       height: '34px',
-                      borderRadius: '4px',
+                      borderRadius: '2px',
                       backgroundColor: '#1E3B8B',
                       display: 'flex',
                       alignItems: 'center',
@@ -751,20 +803,20 @@ Certifications: ${formData.certifications}
                   </div>
 
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Full Name</label>
+                    <div>
+                      <label style={labelStyle}>Full Name</label>
                       <input 
                         type="text"
                         name="fullName"
                         value={formData.fullName}
                         onChange={handleInputChange}
                         placeholder="Enter your full name"
-                        className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-gray-800 transition-all font-semibold text-gray-900 dark:text-white"
+                        style={inputStyle}
                       />
                     </div>
                     
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Professional Title</label>
+                    <div>
+                      <label style={labelStyle}>Professional Title</label>
                       <div className="relative">
                         <input 
                           type="text"
@@ -772,9 +824,10 @@ Certifications: ${formData.certifications}
                           value={formData.professionalTitle}
                           onChange={handleInputChange}
                           placeholder="e.g. Software Engineer"
-                          className="w-full px-5 py-4 bg-white dark:bg-gray-800 border border-[#cbd5e1] dark:border-gray-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-gray-800 transition-all font-semibold text-gray-900 dark:text-white pr-12"
+                          style={{ ...inputStyle, paddingRight: '48px' }}
                         />
                         <button 
+                          type="button"
                           onClick={suggestTitles}
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-primary hover:scale-110 transition-transform"
                         >
@@ -783,53 +836,53 @@ Certifications: ${formData.certifications}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Email</label>
+                    <div className="space-y-4">
+                      <div>
+                        <label style={labelStyle}>Email</label>
                         <input 
                           type="email"
                           name="email"
                           value={formData.email}
                           onChange={handleInputChange}
                           placeholder="Email address"
-                          className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-gray-800 transition-all font-semibold text-gray-900 dark:text-white"
+                          style={inputStyle}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Phone</label>
+                      <div>
+                        <label style={labelStyle}>Phone</label>
                         <input 
                           type="tel"
                           name="phone"
                           value={formData.phone}
                           onChange={handleInputChange}
                           placeholder="Phone number"
-                          className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-gray-800 transition-all font-semibold text-gray-900 dark:text-white"
+                          style={inputStyle}
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Location</label>
+                    <div className="space-y-4">
+                      <div>
+                        <label style={labelStyle}>Location</label>
                         <select 
                           name="location"
                           value={formData.location}
                           onChange={handleInputChange}
-                          className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-gray-800 transition-all font-semibold text-gray-900 dark:text-white"
+                          style={selectStyle}
                         >
                           <option value="">Select State</option>
                           {states.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">LinkedIn (Optional)</label>
+                      <div>
+                        <label style={labelStyle}>LinkedIn (Optional)</label>
                         <input 
                           type="text"
                           name="linkedin"
                           value={formData.linkedin}
                           onChange={handleInputChange}
                           placeholder="linkedin.com/in/username"
-                          className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-gray-800 transition-all font-semibold text-gray-900 dark:text-white"
+                          style={inputStyle}
                         />
                       </div>
                     </div>
@@ -837,14 +890,7 @@ Certifications: ${formData.certifications}
                 </div>
 
                 {/* Card 2: Professional Summary */}
-                <div style={{
-                  background: 'white',
-                  borderRadius: '4px',
-                  padding: '20px',
-                  marginBottom: '16px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                  border: '1px solid #e2e8f0'
-                }}>
+                <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -856,7 +902,7 @@ Certifications: ${formData.certifications}
                     <div style={{
                       width: '34px',
                       height: '34px',
-                      borderRadius: '4px',
+                      borderRadius: '2px',
                       backgroundColor: '#1E3B8B',
                       display: 'flex',
                       alignItems: 'center',
@@ -879,11 +925,12 @@ Certifications: ${formData.certifications}
                         onChange={handleInputChange}
                         rows={4}
                         placeholder="A short punchy intro..."
-                        className="w-full px-5 py-4 bg-white dark:bg-gray-800 border border-[#cbd5e1] dark:border-gray-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-gray-800 transition-all font-semibold text-gray-900 dark:text-white resize-none"
+                        style={textareaStyle}
                       />
                       <button 
+                        type="button"
                         onClick={generateSummary}
-                        className="absolute bottom-4 right-4 p-2 bg-primary text-white rounded-lg shadow-lg"
+                        className="absolute bottom-3 right-3 p-2 bg-primary text-white rounded-sm shadow-sm"
                       >
                         <Wand2 size={16} />
                       </button>
@@ -899,17 +946,10 @@ Certifications: ${formData.certifications}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="space-y-8"
+                className="space-y-4"
               >
                 {/* Card 1: Professional Experience */}
-                <div style={{
-                  background: 'white',
-                  borderRadius: '4px',
-                  padding: '20px',
-                  marginBottom: '16px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                  border: '1px solid #e2e8f0'
-                }}>
+                <div>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -922,7 +962,7 @@ Certifications: ${formData.certifications}
                       <div style={{
                         width: '34px',
                         height: '34px',
-                        borderRadius: '4px',
+                        borderRadius: '2px',
                         backgroundColor: '#1E3B8B',
                         display: 'flex',
                         alignItems: 'center',
@@ -937,89 +977,90 @@ Certifications: ${formData.certifications}
                       </div>
                     </div>
                     <button 
+                      type="button"
                       onClick={addExperience}
-                      className="p-2 bg-primary text-white rounded-xl hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center gap-1 text-xs font-bold px-3"
+                      style={{ height: '36px', padding: '0 12px', backgroundColor: '#1E3B8B', color: '#fff', borderRadius: '2px', border: 'none', fontWeight: 'bold', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
                     >
-                      <Plus size={16} /> Add Role
+                      <Plus size={14} /> Add Role
                     </button>
                   </div>
 
-                  <div className="space-y-6 pt-2">
+                  <div className="space-y-3 pt-2">
                     {formData.experience.map((exp: any, index: number) => (
-                      <motion.div 
+                      <div 
                         key={index}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-6 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-3xl relative group"
+                        style={subCardStyle}
                       >
                         <button 
+                          type="button"
                           onClick={() => removeExperience(index)}
-                          className="absolute -top-3 -right-3 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-10"
+                          style={{ position: 'absolute', top: '10px', right: '10px', width: '32px', height: '32px', backgroundColor: '#ef4444', color: '#fff', borderRadius: '2px', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
                         >
                           <X size={14} />
                         </button>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Job Title</label>
+                        <div className="space-y-3 mb-3">
+                          <div>
+                            <label style={labelStyle}>Job Title</label>
                             <input 
                               type="text"
                               value={exp.jobTitle}
                               onChange={(e) => updateExperience(index, 'jobTitle', e.target.value)}
                               placeholder="e.g. Sales Manager"
-                              className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium text-sm text-gray-900 dark:text-white"
+                              style={inputStyle}
                             />
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Company</label>
+                          <div>
+                            <label style={labelStyle}>Company</label>
                             <input 
                               type="text"
                               value={exp.companyName}
                               onChange={(e) => updateExperience(index, 'companyName', e.target.value)}
                               placeholder="e.g. Google"
-                              className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium text-sm text-gray-900 dark:text-white"
+                              style={inputStyle}
                             />
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Start Date</label>
+                        <div className="space-y-3 mb-3">
+                          <div>
+                            <label style={labelStyle}>Start Date</label>
                             <input 
                               type="text"
                               value={exp.startDate}
                               onChange={(e) => updateExperience(index, 'startDate', e.target.value)}
                               placeholder="e.g. Jan 2020"
-                              className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium text-sm text-gray-900 dark:text-white"
+                              style={inputStyle}
                             />
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">End Date</label>
+                          <div>
+                            <label style={labelStyle}>End Date</label>
                             <input 
                               type="text"
                               value={exp.endDate}
                               onChange={(e) => updateExperience(index, 'endDate', e.target.value)}
                               placeholder="e.g. Present"
-                              className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium text-sm text-gray-900 dark:text-white"
+                              style={inputStyle}
                             />
                           </div>
                         </div>
 
-                        <div className="space-y-2 mb-4">
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Location</label>
+                        <div className="space-y-2 mb-3">
+                          <label style={labelStyle}>Location</label>
                           <input 
                             type="text"
                             value={exp.location}
                             onChange={(e) => updateExperience(index, 'location', e.target.value)}
                             placeholder="e.g. Lagos, Nigeria"
-                            className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium text-sm text-gray-900 dark:text-white"
+                            style={inputStyle}
                           />
                         </div>
 
                         <div className="space-y-2">
                           <div className="flex justify-between items-center mb-1">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Responsibilities</label>
+                            <label style={labelStyle}>Responsibilities</label>
                             <button 
+                              type="button"
                               onClick={() => generateResponsibilities(index)}
                               className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1 hover:underline"
                             >
@@ -1031,24 +1072,20 @@ Certifications: ${formData.certifications}
                             onChange={(e) => updateExperience(index, 'responsibilities', e.target.value)}
                             rows={4}
                             placeholder="Describe your achievements..."
-                            className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium text-sm text-gray-900 dark:text-white resize-none"
+                            style={textareaStyle}
                           />
                         </div>
-                      </motion.div>
+                      </div>
                     ))}
-
                     {formData.experience.length === 0 && (
-                      <div className="text-center py-12 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl">
-                        <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-4 text-gray-300">
-                          <Briefcase size={32} />
-                        </div>
-                        <h4 className="font-bold text-gray-900 dark:text-white">No Experience Added</h4>
-                        <p className="text-sm text-gray-400 mt-1 mb-6">Start by adding your first job role</p>
+                      <div className="text-center py-12 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-sm">
+                        <p className="text-sm font-bold text-gray-400 mb-4">No work experience added yet</p>
                         <button 
+                          type="button"
                           onClick={addExperience}
-                          className="px-6 py-3 bg-primary text-white font-black text-[10px] tracking-widest uppercase rounded-xl"
+                          className="px-6 py-3 bg-primary text-white font-black text-xs uppercase tracking-wider rounded-sm"
                         >
-                          Add Experience
+                          + Add Your First Role
                         </button>
                       </div>
                     )}
@@ -1063,17 +1100,10 @@ Certifications: ${formData.certifications}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="space-y-8"
+                className="space-y-4"
               >
-                {/* Card 1: Academic History */}
-                <div style={{
-                  background: 'white',
-                  borderRadius: '4px',
-                  padding: '20px',
-                  marginBottom: '16px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                  border: '1px solid #e2e8f0'
-                }}>
+                {/* Card 1: Education */}
+                <div>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1086,7 +1116,7 @@ Certifications: ${formData.certifications}
                       <div style={{
                         width: '34px',
                         height: '34px',
-                        borderRadius: '4px',
+                        borderRadius: '2px',
                         backgroundColor: '#1E3B8B',
                         display: 'flex',
                         alignItems: 'center',
@@ -1096,131 +1126,92 @@ Certifications: ${formData.certifications}
                         <GraduationCap size={18} color="white" />
                       </div>
                       <div>
-                        <p style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a', margin: 0 }}>Academic History</p>
-                        <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Degrees & Certificates</p>
+                        <p style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a', margin: 0 }}>Education</p>
+                        <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Add your degrees and institutions</p>
                       </div>
                     </div>
                     <button 
+                      type="button"
                       onClick={addEducation}
-                      className="p-2 bg-primary text-white rounded-xl hover:scale-110 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center gap-1 text-xs font-bold px-3"
+                      style={{ height: '36px', padding: '0 12px', backgroundColor: '#1E3B8B', color: '#fff', borderRadius: '2px', border: 'none', fontWeight: 'bold', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
                     >
-                      <Plus size={16} /> Add Degree
+                      <Plus size={14} /> Add School
                     </button>
                   </div>
 
-                  <div className="space-y-6 pt-2">
+                  <div className="space-y-3 pt-2">
                     {formData.education.map((edu: any, index: number) => (
-                      <motion.div 
+                      <div 
                         key={index}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-6 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-3xl relative"
+                        style={subCardStyle}
                       >
                         <button 
+                          type="button"
                           onClick={() => removeEducation(index)}
-                          className="absolute -top-3 -right-3 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-10"
+                          style={{ position: 'absolute', top: '10px', right: '10px', width: '32px', height: '32px', backgroundColor: '#ef4444', color: '#fff', borderRadius: '2px', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
                         >
                           <X size={14} />
                         </button>
 
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Degree / Qualification</label>
+                        <div className="space-y-3 mb-3">
+                          <div>
+                            <label style={labelStyle}>Degree / Qualification</label>
                             <input 
                               type="text"
                               value={edu.degree}
                               onChange={(e) => updateEducation(index, 'degree', e.target.value)}
-                              placeholder="e.g. B.Sc Computer Science"
-                              className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium text-sm text-gray-900 dark:text-white"
+                              placeholder="e.g. B.Sc. Computer Science"
+                              style={inputStyle}
                             />
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Institution Name</label>
+                          <div>
+                            <label style={labelStyle}>Institution</label>
                             <input 
                               type="text"
                               value={edu.institutionName}
                               onChange={(e) => updateEducation(index, 'institutionName', e.target.value)}
                               placeholder="e.g. University of Lagos"
-                              className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium text-sm text-gray-900 dark:text-white"
+                              style={inputStyle}
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Year Graduated</label>
-                              <input 
-                                type="text"
-                                value={edu.yearGraduated}
-                                onChange={(e) => updateEducation(index, 'yearGraduated', e.target.value)}
-                                placeholder="e.g. 2021"
-                                className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium text-sm text-gray-900 dark:text-white"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Grade (Optional)</label>
-                              <input 
-                                type="text"
-                                value={edu.grade}
-                                onChange={(e) => updateEducation(index, 'grade', e.target.value)}
-                                placeholder="e.g. Second Class Upper"
-                                className="w-full px-4 py-3 bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 font-medium text-sm text-gray-900 dark:text-white"
-                              />
-                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div>
+                            <label style={labelStyle}>Year Graduated</label>
+                            <input 
+                              type="text"
+                              value={edu.yearGraduated}
+                              onChange={(e) => updateEducation(index, 'yearGraduated', e.target.value)}
+                              placeholder="e.g. 2021"
+                              style={inputStyle}
+                            />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Grade (Optional)</label>
+                            <input 
+                              type="text"
+                              value={edu.grade}
+                              onChange={(e) => updateEducation(index, 'grade', e.target.value)}
+                              placeholder="e.g. Second Class Upper"
+                              style={inputStyle}
+                            />
                           </div>
                         </div>
-                      </motion.div>
+                      </div>
                     ))}
-                  </div>
-                </div>
-
-                {/* Card 2: NYSC Status */}
-                <div style={{
-                  background: 'white',
-                  borderRadius: '4px',
-                  padding: '20px',
-                  marginBottom: '16px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                  border: '1px solid #e2e8f0'
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    marginBottom: '16px',
-                    paddingBottom: '12px',
-                    borderBottom: '2px solid #E8B736'
-                  }}>
-                    <div style={{
-                      width: '34px',
-                      height: '34px',
-                      borderRadius: '4px',
-                      backgroundColor: '#1E3B8B',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <CheckCircle2 size={18} color="white" />
-                    </div>
-                    <div>
-                      <p style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a', margin: 0 }}>NYSC Status</p>
-                      <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>National Youth Service Corps status</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
-                    {['Completed', 'Exempted', 'Serving', 'Not Yet'].map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => setFormData((prev: any) => ({ ...prev, nyscStatus: status }))}
-                        className={`py-3 px-4 rounded-xl text-xs font-bold transition-all border ${
-                          formData.nyscStatus === status 
-                            ? 'bg-primary border-primary text-white shadow-lg shadow-primary/25 scale-105' 
-                            : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-500 hover:border-gray-300'
-                        }`}
-                      >
-                        {status}
-                      </button>
-                    ))}
+                    {formData.education.length === 0 && (
+                      <div className="text-center py-12 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-sm">
+                        <p className="text-sm font-bold text-gray-400 mb-4">No education added yet</p>
+                        <button 
+                          type="button"
+                          onClick={addEducation}
+                          className="px-6 py-3 bg-primary text-white font-black text-xs uppercase tracking-wider rounded-sm"
+                        >
+                          + Add Your Education
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -1232,21 +1223,16 @@ Certifications: ${formData.certifications}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="space-y-8"
+                className="space-y-4"
               >
                 {/* Card 1: Skills */}
-                <div style={{
-                  background: 'white',
-                  borderRadius: '4px',
-                  padding: '20px',
-                  marginBottom: '16px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                  border: '1px solid #e2e8f0'
-                }}>
+                <div>
                   <div style={{
                     display: 'flex',
+                    flexWrap: 'wrap',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    gap: '10px',
                     marginBottom: '16px',
                     paddingBottom: '12px',
                     borderBottom: '2px solid #E8B736'
@@ -1255,7 +1241,7 @@ Certifications: ${formData.certifications}
                       <div style={{
                         width: '34px',
                         height: '34px',
-                        borderRadius: '4px',
+                        borderRadius: '2px',
                         backgroundColor: '#1E3B8B',
                         display: 'flex',
                         alignItems: 'center',
@@ -1270,8 +1256,9 @@ Certifications: ${formData.certifications}
                       </div>
                     </div>
                     <button 
+                      type="button"
                       onClick={suggestSkills}
-                      className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-lg"
+                      className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-sm"
                     >
                       <Sparkles size={12} /> AI Suggest
                     </button>
@@ -1279,32 +1266,64 @@ Certifications: ${formData.certifications}
 
                   <div className="space-y-6 pt-2">
                     <div>
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block pl-1">Technical Skills</label>
-                      <div className="flex flex-wrap gap-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 mb-2">
-                        {formData.technicalSkills.map((skill: string) => (
-                          <span key={skill} className="px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-bold rounded-lg border border-gray-100 dark:border-gray-600 flex items-center gap-1 shadow-sm">
-                            {skill}
-                            <button onClick={() => removeTag('technicalSkills', skill)} className="text-gray-400 hover:text-red-500"><X size={12} /></button>
-                          </span>
-                        ))}
+                      <label style={labelStyle}>Technical Skills</label>
+                      <div style={{ display: 'flex', gap: '8px', width: '100%', marginBottom: '12px' }}>
                         <input 
+                          type="text"
+                          value={techSkillInput}
+                          onChange={(e) => setTechSkillInput(e.target.value)}
                           onKeyDown={(e: any) => {
-                            if (e.key === 'Enter' && e.target.value) {
-                              setFormData((prev: any) => ({ ...prev, technicalSkills: [...prev.technicalSkills, e.target.value] }));
-                              e.target.value = '';
+                            if (e.key === 'Enter' || e.keyCode === 13) {
+                              e.preventDefault();
+                              const val = techSkillInput.trim();
+                              if (val) {
+                                const currentSkills = Array.isArray(formData.technicalSkills) ? formData.technicalSkills : [];
+                                const exists = currentSkills.some((s: string) => s.toLowerCase() === val.toLowerCase());
+                                if (!exists) {
+                                  setFormData((prev: any) => ({ ...prev, technicalSkills: [...currentSkills, val] }));
+                                }
+                                setTechSkillInput('');
+                              }
                             }
                           }}
+                          enterKeyHint="done"
                           placeholder="Type skill & press enter..."
-                          className="bg-transparent outline-none text-xs font-bold text-gray-900 dark:text-white min-w-[150px]"
+                          style={inputStyle}
                         />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = techSkillInput.trim();
+                            if (val) {
+                              const currentSkills = Array.isArray(formData.technicalSkills) ? formData.technicalSkills : [];
+                              const exists = currentSkills.some((s: string) => s.toLowerCase() === val.toLowerCase());
+                              if (!exists) {
+                                setFormData((prev: any) => ({ ...prev, technicalSkills: [...currentSkills, val] }));
+                              }
+                              setTechSkillInput('');
+                            }
+                          }}
+                          style={{ flexShrink: 0, height: '48px', padding: '0 14px', backgroundColor: '#1E3B8B', color: 'white', borderRadius: '2px', border: 'none', fontWeight: 700, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          + Add
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {formData.technicalSkills.map((skill: string) => (
+                          <span key={skill} style={{ backgroundColor: '#1E3B8B', color: 'white', borderRadius: '2px', padding: '4px 10px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            {skill}
+                            <button type="button" onClick={() => removeTag('technicalSkills', skill)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '32px', minHeight: '32px' }}><X size={14} /></button>
+                          </span>
+                        ))}
                       </div>
                       {suggestions.skills.technical.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                           {suggestions.skills.technical.filter(s => !formData.technicalSkills.includes(s)).map(s => (
                             <button 
                               key={s} 
-                              onClick={() => setFormData((prev: any) => ({ ...prev, technicalSkills: [...prev.technicalSkills, s ]}))}
-                              className="text-[10px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-md hover:bg-primary/20 transition-colors"
+                              type="button"
+                              onClick={() => setFormData((prev: any) => ({ ...prev, technicalSkills: [...formData.technicalSkills, s ]}))}
+                              className="text-[10px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-sm hover:bg-primary/20 transition-colors"
                             >
                               + {s}
                             </button>
@@ -1314,17 +1333,17 @@ Certifications: ${formData.certifications}
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block pl-1">Soft Skills</label>
+                      <label style={labelStyle}>Soft Skills</label>
                       <input 
                         type="text"
                         value={softSkillSearch}
                         onChange={(e) => setSoftSkillSearch(e.target.value)}
                         placeholder="Search soft skills..."
-                        className="w-full px-3 py-2 mb-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-sm outline-none text-gray-900 dark:text-white"
+                        style={{ ...inputStyle, marginBottom: '8px' }}
                       />
                       <div style={{
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '4px',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '2px',
                         background: 'white',
                         maxHeight: '220px',
                         overflowY: 'auto'
@@ -1362,7 +1381,7 @@ Certifications: ${formData.certifications}
                               <div style={{
                                 width: '16px',
                                 height: '16px',
-                                borderRadius: '3px',
+                                borderRadius: '2px',
                                 border: isSelected ? '1px solid white' : '1px solid #cbd5e1',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1397,7 +1416,7 @@ Certifications: ${formData.certifications}
                               }}
                             >
                               {skill}
-                              <button onClick={() => removeTag('softSkills', skill)} className="hover:opacity-80"><X size={12} /></button>
+                              <button type="button" onClick={() => removeTag('softSkills', skill)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '32px', minHeight: '32px' }}><X size={12} /></button>
                             </span>
                           ))}
                         </div>
@@ -1407,14 +1426,7 @@ Certifications: ${formData.certifications}
                 </div>
 
                 {/* Card 2: Certifications, References & Languages */}
-                <div style={{
-                  background: 'white',
-                  borderRadius: '4px',
-                  padding: '20px',
-                  marginBottom: '16px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                  border: '1px solid #e2e8f0'
-                }}>
+                <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #E2E8F0' }}>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1426,7 +1438,7 @@ Certifications: ${formData.certifications}
                     <div style={{
                       width: '34px',
                       height: '34px',
-                      borderRadius: '4px',
+                      borderRadius: '2px',
                       backgroundColor: '#1E3B8B',
                       display: 'flex',
                       alignItems: 'center',
@@ -1442,33 +1454,45 @@ Certifications: ${formData.certifications}
                   </div>
 
                   <div className="space-y-6 pt-2">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Certifications & Awards</label>
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                    <div>
+                      <label style={labelStyle}>Certifications & Awards</label>
+                      <div style={{ display: 'flex', gap: '8px', width: '100%', marginBottom: '12px' }}>
                         <input
                           type="text"
                           placeholder="e.g. Google Analytics Certificate"
                           value={certInput}
                           onChange={(e) => setCertInput(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
+                            if (e.key === 'Enter' || e.keyCode === 13) {
                               e.preventDefault();
-                              if (certInput.trim()) {
-                                setFormData((prev: any) => ({ ...prev, certifications: [...(Array.isArray(prev.certifications) ? prev.certifications : []), certInput.trim()] }));
+                              const val = certInput.trim();
+                              if (val) {
+                                const currentCerts = Array.isArray(formData.certifications) ? formData.certifications : [];
+                                const exists = currentCerts.some((c: string) => c.toLowerCase() === val.toLowerCase());
+                                if (!exists) {
+                                  setFormData((prev: any) => ({ ...prev, certifications: [...currentCerts, val] }));
+                                }
                                 setCertInput('');
                               }
                             }
                           }}
-                          style={{ flex: 1, padding: '10px 12px', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', background: '#f8fafc' }}
+                          enterKeyHint="done"
+                          style={inputStyle}
                         />
                         <button
+                          type="button"
                           onClick={() => {
-                            if (certInput.trim()) {
-                              setFormData((prev: any) => ({ ...prev, certifications: [...(Array.isArray(prev.certifications) ? prev.certifications : []), certInput.trim()] }));
+                            const val = certInput.trim();
+                            if (val) {
+                              const currentCerts = Array.isArray(formData.certifications) ? formData.certifications : [];
+                              const exists = currentCerts.some((c: string) => c.toLowerCase() === val.toLowerCase());
+                              if (!exists) {
+                                setFormData((prev: any) => ({ ...prev, certifications: [...currentCerts, val] }));
+                              }
                               setCertInput('');
                             }
                           }}
-                          style={{ padding: '10px 16px', backgroundColor: '#1E3B8B', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 700, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          style={{ flexShrink: 0, height: '48px', padding: '0 14px', backgroundColor: '#1E3B8B', color: 'white', borderRadius: '2px', border: 'none', fontWeight: 700, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                         >
                           + Add
                         </button>
@@ -1476,22 +1500,23 @@ Certifications: ${formData.certifications}
                       {/* Tags */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                         {(Array.isArray(formData.certifications) ? formData.certifications : []).map((cert: any, i: number) => (
-                          <span key={i} style={{ backgroundColor: '#1E3B8B', color: 'white', borderRadius: '4px', padding: '4px 10px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <span key={i} style={{ backgroundColor: '#1E3B8B', color: 'white', borderRadius: '2px', padding: '4px 10px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             {cert}
-                            <button onClick={() => setFormData((prev: any) => ({ ...prev, certifications: prev.certifications.filter((_: any, idx: number) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0, fontSize: '14px', lineHeight: 1 }}>×</button>
+                            <button type="button" onClick={() => setFormData((prev: any) => ({ ...prev, certifications: prev.certifications.filter((_: any, idx: number) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '32px', minHeight: '32px' }}>×</button>
                           </span>
                         ))}
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">References</label>
+                      <label style={labelStyle}>References</label>
                       <div className="flex gap-4">
                         {['request', 'details'].map((type) => (
                           <button
                             key={type}
+                            type="button"
                             onClick={() => setFormData((prev: any) => ({ ...prev, referenceType: type }))}
-                            className={`flex-1 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border ${
+                            className={`flex-1 py-3 rounded-sm text-xs font-black uppercase tracking-widest transition-all border ${
                               formData.referenceType === type 
                                 ? 'bg-primary border-primary text-white' 
                                 : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-500'
@@ -1505,17 +1530,18 @@ Certifications: ${formData.certifications}
                       {formData.referenceType === 'details' && (
                         <div className="space-y-4 pt-2">
                           {formData.references.map((ref: any, i: number) => (
-                            <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl relative">
+                            <div key={i} style={subCardStyle}>
                               <button 
+                                type="button"
                                 onClick={() => {
                                   const newRefs = formData.references.filter((_: any, idx: number) => idx !== i);
                                   setFormData((prev: any) => ({ ...prev, references: newRefs }));
                                 }}
-                                className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+                                style={{ position: 'absolute', top: '10px', right: '10px', width: '32px', height: '32px', backgroundColor: '#ef4444', color: '#fff', borderRadius: '2px', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}
                               >
                                 <X size={14} />
                               </button>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-3">
                                 <input 
                                   placeholder="Reference Name"
                                   value={ref.name}
@@ -1524,7 +1550,7 @@ Certifications: ${formData.certifications}
                                     newRefs[i].name = e.target.value;
                                     setFormData((prev: any) => ({ ...prev, references: newRefs }));
                                   }}
-                                  className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl text-sm"
+                                  style={inputStyle}
                                 />
                                 <input 
                                   placeholder="Company / Position"
@@ -1534,7 +1560,7 @@ Certifications: ${formData.certifications}
                                     newRefs[i].company = e.target.value;
                                     setFormData((prev: any) => ({ ...prev, references: newRefs }));
                                   }}
-                                  className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl text-sm"
+                                  style={inputStyle}
                                 />
                                 <input 
                                   placeholder="Phone / Email"
@@ -1544,14 +1570,15 @@ Certifications: ${formData.certifications}
                                     newRefs[i].phone = e.target.value;
                                     setFormData((prev: any) => ({ ...prev, references: newRefs }));
                                   }}
-                                  className="w-full px-4 py-2 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl text-sm md:col-span-2"
+                                  style={inputStyle}
                                 />
                               </div>
                             </div>
                           ))}
                           <button 
+                            type="button"
                             onClick={() => setFormData((prev: any) => ({ ...prev, references: [...prev.references, { name: '', company: '', phone: '' }] }))}
-                            className="w-full py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl text-xs font-bold text-gray-400 hover:border-primary hover:text-primary transition-all"
+                            className="w-full py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-sm text-xs font-bold text-gray-400 hover:border-primary hover:text-primary transition-all"
                           >
                             + Add Reference Detail
                           </button>
@@ -1560,32 +1587,44 @@ Certifications: ${formData.certifications}
                     </div>
 
                     <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Languages</label>
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                      <label style={labelStyle}>Languages</label>
+                      <div style={{ display: 'flex', gap: '8px', width: '100%', marginBottom: '12px' }}>
                         <input
                           type="text"
                           placeholder="e.g. English, French"
                           value={langInput}
                           onChange={(e) => setLangInput(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
+                            if (e.key === 'Enter' || e.keyCode === 13) {
                               e.preventDefault();
-                              if (langInput.trim()) {
-                                setFormData((prev: any) => ({ ...prev, languages: [...(Array.isArray(prev.languages) ? prev.languages : []), langInput.trim()] }));
+                              const val = langInput.trim();
+                              if (val) {
+                                const currentLangs = Array.isArray(formData.languages) ? formData.languages : [];
+                                const exists = currentLangs.some((l: string) => l.toLowerCase() === val.toLowerCase());
+                                if (!exists) {
+                                  setFormData((prev: any) => ({ ...prev, languages: [...currentLangs, val] }));
+                                }
                                 setLangInput('');
                               }
                             }
                           }}
-                          style={{ flex: 1, padding: '10px 12px', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', background: '#f8fafc' }}
+                          enterKeyHint="done"
+                          style={inputStyle}
                         />
                         <button
+                          type="button"
                           onClick={() => {
-                            if (langInput.trim()) {
-                              setFormData((prev: any) => ({ ...prev, languages: [...(Array.isArray(prev.languages) ? prev.languages : []), langInput.trim()] }));
+                            const val = langInput.trim();
+                            if (val) {
+                              const currentLangs = Array.isArray(formData.languages) ? formData.languages : [];
+                              const exists = currentLangs.some((l: string) => l.toLowerCase() === val.toLowerCase());
+                              if (!exists) {
+                                setFormData((prev: any) => ({ ...prev, languages: [...currentLangs, val] }));
+                              }
                               setLangInput('');
                             }
                           }}
-                          style={{ padding: '10px 16px', backgroundColor: '#1E3B8B', color: 'white', borderRadius: '4px', border: 'none', fontWeight: 700, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          style={{ flexShrink: 0, height: '48px', padding: '0 14px', backgroundColor: '#1E3B8B', color: 'white', borderRadius: '2px', border: 'none', fontWeight: 700, fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                         >
                           + Add
                         </button>
@@ -1593,9 +1632,9 @@ Certifications: ${formData.certifications}
                       {/* Tags */}
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                         {(Array.isArray(formData.languages) ? formData.languages : []).map((lang: any, i: number) => (
-                          <span key={i} style={{ backgroundColor: '#1E3B8B', color: 'white', borderRadius: '4px', padding: '4px 10px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <span key={i} style={{ backgroundColor: '#1E3B8B', color: 'white', borderRadius: '2px', padding: '4px 10px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             {lang}
-                            <button onClick={() => setFormData((prev: any) => ({ ...prev, languages: prev.languages.filter((_: any, idx: number) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0, fontSize: '14px', lineHeight: 1 }}>×</button>
+                            <button type="button" onClick={() => setFormData((prev: any) => ({ ...prev, languages: prev.languages.filter((_: any, idx: number) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '32px', minHeight: '32px' }}>×</button>
                           </span>
                         ))}
                       </div>
@@ -1610,81 +1649,83 @@ Certifications: ${formData.certifications}
                 key="step5"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="space-y-8 relative"
+                className="space-y-4 relative"
               >
                 {/* CV Preview Container */}
                 <div 
                   id="cv-document-preview"
-                  className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm transition-all overflow-hidden"
+                  className="bg-white p-0 rounded-sm border border-gray-200 shadow-sm transition-all overflow-hidden"
                   style={!isPaid ? { filter: 'blur(4px)', pointerEvents: 'none' } : {}}
                 >
-                <div style={{ width: '100%', overflowX: 'auto', overflowY: 'visible', WebkitOverflowScrolling: 'touch' }}>
-                  <div
-                    id="cv-document-preview-inner"
-                    style={{ width: '794px', background: 'white', minHeight: '400px' }}
-                  >
-                    <DocumentHTML data={formData} type="cv" />
-                  </div>
-                </div>
+                  <ScaledPreviewWrapper isPaid={isPaid} maxHeight="420px">
+                    <div
+                      id="cv-document-preview-inner"
+                      style={{ width: '794px', background: 'white' }}
+                    >
+                      <DocumentHTML data={formData} type="cv" />
+                    </div>
+                  </ScaledPreviewWrapper>
                 </div>
 
                 {/* Overlay / Action Card */}
                 {!isPaid ? (
                   settings?.requirePayment?.cv === false ? (
                     // Free download — no payment needed
-                    <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-sm text-center space-y-4">
-                      <div className="w-14 h-14 bg-emerald-500 text-white rounded-sm flex items-center justify-center mx-auto text-2xl">
+                    <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-sm text-center space-y-4">
+                      <div className="w-12 h-12 bg-emerald-500 text-white rounded-sm flex items-center justify-center mx-auto text-xl">
                         🎉
                       </div>
                       <div>
-                        <h3 className="text-xl font-black text-emerald-800">Free Download!</h3>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <h3 className="text-lg font-black text-emerald-800">Free Download!</h3>
+                        <p className="text-xs text-gray-500 mt-1">
                           This document is currently free. Download it now.
                         </p>
                       </div>
                       <button
+                        type="button"
                         onClick={handleDownloadPDF}
                         disabled={isGeneratingPDF}
-                        style={{ backgroundColor: '#1E3B8B', color: 'white', borderRadius: '4px', padding: '14px 24px', fontWeight: 700, fontSize: '14px', width: '100%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        style={{ backgroundColor: '#1E3B8B', color: 'white', borderRadius: '2px', height: '48px', padding: '0 24px', fontWeight: 700, fontSize: '14px', width: '100%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                       >
                         {isGeneratingPDF ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
                         Download PDF Free
                       </button>
                     </div>
                   ) : (
-                    // Payment required — existing overlay card stays exactly as is
-                    <div className="absolute inset-0 flex items-center justify-center p-6 z-20 bg-white/40 dark:bg-black/40 backdrop-blur-xs rounded-2xl">
-                      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center space-y-6">
-                        <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto">
-                          <Lock size={32} />
+                    // Payment required
+                    <div className="absolute inset-0 flex items-center justify-center p-4 z-20 bg-white/40 dark:bg-black/40 backdrop-blur-xs rounded-sm">
+                      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 rounded-sm shadow-xl max-w-sm w-full text-center space-y-4">
+                        <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-sm flex items-center justify-center mx-auto">
+                          <Lock size={24} />
                         </div>
                         <div>
-                          <h3 className="text-2xl font-black text-gray-900 dark:text-white">Unlock Your CV</h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                          <h3 className="text-xl font-black text-gray-900 dark:text-white">Unlock Your CV</h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             ₦{calculatePrice().toLocaleString()} one-time payment to download your professional CV
                           </p>
                         </div>
                         <button 
+                          type="button"
                           onClick={handlePayment}
-                          className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm uppercase tracking-wider rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all"
+                          style={{ width: '100%', height: '48px', backgroundColor: '#10b981', color: 'white', fontWeight: 900, fontSize: '13px', textTransform: 'uppercase', borderRadius: '2px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
                         >
                           Pay ₦{calculatePrice().toLocaleString()} to Download
                         </button>
-                        <p className="text-xs text-gray-400">Secured by Paystack</p>
+                        <p className="text-[10px] text-gray-400">Secured by Paystack</p>
                       </div>
                     </div>
                   )
                 ) : (
-                  <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 p-8 rounded-3xl text-center space-y-6">
-                    <div className="w-16 h-16 bg-emerald-500 text-white rounded-2xl flex items-center justify-center mx-auto text-2xl">
+                  <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 p-6 rounded-sm text-center space-y-4">
+                    <div className="w-12 h-12 bg-emerald-500 text-white rounded-sm flex items-center justify-center mx-auto text-xl">
                       🎉
                     </div>
                     <div>
-                      <h3 className="text-2xl font-black text-emerald-800 dark:text-emerald-400">Payment Successful!</h3>
-                      <div style={{ marginTop: '8px' }}>
-                        <span style={{ fontSize: '13px', color: '#6b7280' }}>Reference:</span>
+                      <h3 className="text-xl font-black text-emerald-800 dark:text-emerald-400">Payment Successful!</h3>
+                      <div style={{ marginTop: '6px' }}>
+                        <span style={{ fontSize: '12px', color: '#6b7280' }}>Reference:</span>
                         <div style={{
-                          fontSize: '11px',
+                          fontSize: '10px',
                           fontFamily: 'monospace',
                           fontWeight: 'bold',
                           wordBreak: 'break-all',
@@ -1696,23 +1737,26 @@ Certifications: ${formData.certifications}
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <div className="flex flex-col gap-3 justify-center">
                       <button 
+                        type="button"
                         onClick={handleDownloadPDF}
                         disabled={isGeneratingPDF}
-                        className="px-6 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm uppercase tracking-wider rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                        style={{ width: '100%', height: '48px', backgroundColor: '#10b981', color: 'white', fontWeight: 900, fontSize: '13px', textTransform: 'uppercase', borderRadius: '2px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                       >
                         {isGeneratingPDF ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
                         Download PDF Now
                       </button>
                       <button 
+                        type="button"
                         onClick={handleCopyText}
-                        className="px-6 py-4 bg-gray-900 dark:bg-gray-800 text-white font-black text-sm uppercase tracking-wider rounded-2xl shadow-lg hover:opacity-90 flex items-center justify-center gap-2"
+                        style={{ width: '100%', height: '48px', backgroundColor: '#111827', color: 'white', fontWeight: 900, fontSize: '13px', textTransform: 'uppercase', borderRadius: '2px', border: 'none', cursor: 'pointer' }}
                       >
                         Copy Text
                       </button>
                     </div>
                     <button
+                      type="button"
                       onClick={() => {
                         const newId = `cv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                         localStorage.removeItem('cb_cv_draft');
@@ -1722,7 +1766,7 @@ Certifications: ${formData.certifications}
                         setStep(1);
                         toast.success('Started a new CV');
                       }}
-                      style={{ marginTop: '12px', background: 'none', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '10px 20px', color: '#64748b', fontSize: '13px', cursor: 'pointer', width: '100%' }}
+                      style={{ marginTop: '8px', background: 'none', border: '1px solid #E2E8F0', borderRadius: '2px', height: '44px', color: '#64748b', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', width: '100%' }}
                     >
                       + Create New CV
                     </button>
@@ -1734,42 +1778,45 @@ Certifications: ${formData.certifications}
         </div>
 
         {/* 5. NAVIGATION BUTTONS */}
-        <div className="mt-8 flex gap-4">
+        <div style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '430px', margin: '24px auto 96px auto' }}>
           {step > 1 && (
             <button 
+              type="button"
               onClick={() => setStep(step - 1)}
-              className="flex-1 py-5 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-400 font-black text-[10px] tracking-widest uppercase rounded-[2rem] shadow-sm active:scale-95 transition-all"
+              style={{ flex: 1, height: '48px', backgroundColor: '#fff', border: '1px solid #E2E8F0', color: '#64748b', fontWeight: 900, fontSize: '12px', textTransform: 'uppercase', borderRadius: '2px', cursor: 'pointer' }}
             >
-              &larr; PREVIOUS
+              &larr; Previous
             </button>
           )}
-          {step < 5 && (
-            <button 
-              onClick={() => setStep(step + 1)}
-              className="flex-[2] py-5 bg-primary text-white font-black text-[10px] tracking-widest uppercase rounded-[2rem] shadow-xl shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              NEXT STEP <ChevronRight size={14} />
-            </button>
-          )}
+          <button 
+            type="button"
+            onClick={() => {
+              if (step < 5) setStep(step + 1);
+            }}
+            style={{ flex: 2, height: '48px', backgroundColor: '#1E3B8B', color: '#fff', fontWeight: 900, fontSize: '12px', textTransform: 'uppercase', borderRadius: '2px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          >
+            {step === 5 ? 'Finish' : 'Next Step'} <ChevronRight size={14} />
+          </button>
         </div>
       </div>
 
       {/* Success Modal */}
       {showSuccess && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white dark:bg-gray-900 p-10 rounded-[40px] max-w-sm w-full text-center shadow-2xl"
+            className="bg-white dark:bg-gray-900 p-8 rounded-sm max-w-xs w-full text-center shadow-2xl"
           >
-            <div className="w-20 h-20 bg-primary/10 dark:bg-primary/30 text-primary rounded-3xl flex items-center justify-center mx-auto mb-8">
-              <CheckCircle2 size={48} />
+            <div className="w-16 h-16 bg-primary/10 text-primary rounded-sm flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 size={36} />
             </div>
-            <h3 className="text-3xl font-black text-gray-900 dark:text-white mb-4">Payment Success!</h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-8">Your professional CV has been unlocked. You can now download it as a PDF.</p>
+            <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-3">Payment Success!</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-xs mb-6">Your professional CV has been unlocked. You can now download it as a PDF.</p>
             <button 
+              type="button"
               onClick={() => setShowSuccess(false)}
-              className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-lg"
+              style={{ width: '100%', height: '48px', backgroundColor: '#1E3B8B', color: 'white', fontWeight: 900, fontSize: '12px', textTransform: 'uppercase', borderRadius: '2px', border: 'none', cursor: 'pointer' }}
             >
               Get Started
             </button>
@@ -1779,57 +1826,59 @@ Certifications: ${formData.certifications}
 
       {/* Email Modal */}
       {showEmailModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-gray-900/60 backdrop-blur-md">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md">
           <motion.div 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-white dark:bg-gray-900 p-8 rounded-[32px] max-w-md w-full shadow-2xl border border-gray-100 dark:border-gray-800"
+            className="bg-white dark:bg-gray-900 p-6 rounded-sm max-w-sm w-full shadow-2xl border border-gray-100 dark:border-gray-800"
           >
-            <div className="flex justify-between items-start mb-6">
+            <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-2xl font-black text-gray-900 dark:text-white">Verify Your Email</h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">We'll send your CV link to this email.</p>
+                <h3 className="text-xl font-black text-gray-900 dark:text-white">Verify Your Email</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">We'll send your CV link to this email.</p>
               </div>
               <button 
+                type="button"
                 onClick={() => setShowEmailModal(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-sm transition-colors"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Email Address</label>
+            <div className="space-y-4">
+              <div>
+                <label style={labelStyle}>Email Address</label>
                 <input 
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="e.g. john@example.com"
-                  className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary font-medium text-gray-900 dark:text-white"
+                  style={inputStyle}
                 />
               </div>
 
-              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
-                 <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-                    <span className="font-bold text-gray-900 dark:text-white">Document Fee</span>
-                    <span className="font-black text-gray-900 dark:text-white">₦{calculatePrice()}</span>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-sm">
+                 <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+                    <span className="font-bold text-xs text-gray-900 dark:text-white">Document Fee</span>
+                    <span className="font-black text-xs text-gray-900 dark:text-white">₦{calculatePrice()}</span>
                  </div>
                  
                  <div className="space-y-2">
                    <div className="relative">
-                     <TagIcon size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                     <TagIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                      <input 
                        type="text"
                        value={promoCode}
                        onChange={(e) => setPromoCode(e.target.value)}
                        placeholder="Promo Code"
-                       className="w-full pl-10 pr-24 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm outline-none text-gray-900 dark:text-white"
+                       style={{ ...inputStyle, paddingLeft: '36px', paddingRight: '80px', minHeight: '44px', fontSize: '14px' }}
                      />
                      <button 
+                       type="button"
                        onClick={validatePromoCode}
                        disabled={isValidatingPromo || !promoCode}
-                       className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-gray-900 dark:bg-gray-800 text-white text-[10px] font-black uppercase rounded-lg disabled:opacity-50"
+                       style={{ position: 'absolute', right: '6px', top: '1/2', transform: 'translateY(-50%)', height: '32px', padding: '0 12px', background: '#111827', color: '#fff', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', borderRadius: '2px', border: 'none', cursor: 'pointer' }}
                      >
                        {isValidatingPromo ? '...' : 'Apply'}
                      </button>
@@ -1844,9 +1893,10 @@ Certifications: ${formData.certifications}
               </div>
 
               <button 
+                type="button"
                 onClick={pay}
                 disabled={!email || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))}
-                className="w-full py-5 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                style={{ width: '100%', height: '48px', backgroundColor: '#1E3B8B', color: 'white', fontWeight: 900, fontSize: '12px', textTransform: 'uppercase', borderRadius: '2px', border: 'none', cursor: 'pointer', opacity: (!email || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) ? 0.5 : 1 }}
               >
                 Proceed to Payment — ₦{calculatePrice()}
               </button>

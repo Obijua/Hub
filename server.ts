@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -30,18 +30,44 @@ async function startServer() {
         }
       });
 
-      const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
-        contents: prompt,
-        config: {
-          systemInstruction: systemInstruction 
+      let response;
+      const primaryModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+      const fallbackModel = "gemini-3.1-flash-lite";
+
+      try {
+        response = await ai.models.generateContent({
+          model: primaryModel,
+          contents: prompt,
+          config: {
+            systemInstruction,
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          }
+        });
+      } catch (primaryError: any) {
+        const isRateLimit = primaryError?.status === 'RESOURCE_EXHAUSTED' || primaryError?.code === 429 || (primaryError?.message && (primaryError.message.includes('429') || primaryError.message.includes('Quota exceeded')));
+        if (isRateLimit) {
+          console.warn(`Primary model ${primaryModel} hit rate limit (429). Falling back to ${fallbackModel}...`);
+          try {
+            response = await ai.models.generateContent({
+              model: fallbackModel,
+              contents: prompt,
+              config: {
+                systemInstruction,
+                thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+              }
+            });
+          } catch (fallbackError: any) {
+            throw primaryError;
+          }
+        } else {
+          throw primaryError;
         }
-      });
+      }
 
       res.json({ text: response.text });
     } catch (error: any) {
       console.error("Gemini Proxy Error:", error);
-      const isRateLimit = error?.status === 'RESOURCE_EXHAUSTED' || error?.code === 429 || (error?.message && error.message.includes('429'));
+      const isRateLimit = error?.status === 'RESOURCE_EXHAUSTED' || error?.code === 429 || (error?.message && (error.message.includes('429') || error.message.includes('Quota exceeded')));
       const message = isRateLimit 
         ? "Gemini API free tier rate limit reached (5 requests per minute). Please wait about a minute before trying again."
         : (error.message || "Failed to generate content");
