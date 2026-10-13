@@ -14,6 +14,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useDocumentSettings } from '../hooks/useDocumentSettings';
+import { useSeo } from '../lib/seo';
 
 const DocumentCard = ({ 
   icon: Icon, 
@@ -69,6 +70,11 @@ const DocumentCard = ({
 );
 
 const DocumentsPage = () => {
+  useSeo({
+    title: 'Professional CV & Cover Letter Builder | Hub & Jobs',
+    description: 'Create professional ATS-friendly CVs, business plans, proposals, and application bundles in minutes.',
+    path: '/documents'
+  });
   const [sampleModal, setSampleModal] = useState<string | null>(null);
   const { settings, loading } = useDocumentSettings();
 

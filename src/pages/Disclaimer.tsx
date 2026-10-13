@@ -2,8 +2,14 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, Info, Gavel, ShieldAlert, ExternalLink } from 'lucide-react';
 import { SEO } from '../components/SEO';
+import { useSeo } from '../lib/seo';
 
 export const Disclaimer = () => {
+  useSeo({
+    title: 'Disclaimer | Hub & Jobs',
+    description: 'Read the disclaimer for Hub & Jobs regarding job listings and opportunities.',
+    path: '/disclaimer'
+  });
   const lastUpdated = 'April 9, 2026';
 
   const disclaimers = [

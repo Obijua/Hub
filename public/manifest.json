@@ -3,14 +3,14 @@
   "name": "Hub & Jobs - Opportunities Portal",
   "icons": [
     {
-      "src": "https://picsum.photos/seed/career/192/192",
-      "type": "image/png",
-      "sizes": "192x192"
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
     },
     {
-      "src": "https://picsum.photos/seed/career/512/512",
-      "type": "image/png",
-      "sizes": "512x512"
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ],
   "start_url": ".",

@@ -10,10 +10,16 @@ import { Search as SearchIcon, Briefcase, ArrowRight } from 'lucide-react';
 import { SEO } from '../components/SEO';
 import { motion } from 'motion/react';
 import { trackEvent } from '../lib/analytics';
+import { useSeo } from '../lib/seo';
 
 export const SearchPage = () => {
   const [searchParams] = useSearchParams();
   const queryParam = searchParams.get('q') || '';
+  useSeo({
+    title: queryParam ? `Search: ${queryParam} | Hub & Jobs` : 'Search Jobs & Opportunities | Hub & Jobs',
+    description: `Search results for ${queryParam || 'jobs, scholarships, internships, and courses'} in Nigeria on Hub & Jobs.`,
+    path: '/search'
+  });
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 

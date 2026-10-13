@@ -31,8 +31,14 @@ import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'fire
 import { db, auth } from '../lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { AlertTriangle, Tag as TagIcon, X } from 'lucide-react';
+import { useSeo } from '../lib/seo';
 
 const ProposalBuilder = () => {
+  useSeo({
+    title: 'Business Proposal Builder | Hub & Jobs',
+    description: 'Create winning business proposals for grants and clients.',
+    path: '/documents/proposal'
+  });
   const [step, setStep] = useState(1);
   const [isPaid, setIsPaid] = useState(false);
   const [paymentRef, setPaymentRef] = useState('');

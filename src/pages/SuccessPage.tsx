@@ -2,8 +2,14 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, Download, Home, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useSeo } from '../lib/seo';
 
 const SuccessPage = () => {
+  useSeo({
+    title: 'Document Created Successfully | Hub & Jobs',
+    description: 'Your document has been generated successfully.',
+    path: '/documents/success'
+  });
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black pt-32 pb-20 px-6">
       <div className="max-w-2xl mx-auto text-center">

@@ -53,10 +53,17 @@ import { CategoryConfig, SocialLinks, SiteConfig, BannerConfig, Subscriber, User
 import { format } from 'date-fns';
 
 import { DocumentSettings } from '../components/admin/DocumentSettings';
+import { useSeo } from '../lib/seo';
 
 type Tab = 'categories' | 'social' | 'site' | 'banner' | 'monetization' | 'documents' | 'newsletter' | 'push' | 'account';
 
 export const AdminSettings = () => {
+  useSeo({
+    title: 'Admin Settings | Hub & Jobs',
+    description: 'Admin settings and configuration console.',
+    path: '/admin/settings',
+    noindex: true
+  });
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = localStorage.getItem('admin_settings_tab');
     if (saved && ['categories', 'social', 'site', 'banner', 'monetization', 'documents', 'newsletter', 'push', 'account'].includes(saved)) {

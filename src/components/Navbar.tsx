@@ -1,15 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Briefcase, Menu, X, Search, Sun, Moon, User, LayoutDashboard, LogOut, Bookmark, Files } from 'lucide-react';
+import { Briefcase, Menu, X, Sun, LogOut, Bookmark } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
 import { useTheme } from './ThemeProvider';
 import { useAuth } from './AuthProvider';
 import { auth, db } from '../lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, doc } from 'firebase/firestore';
-import { CategoryConfig, SiteConfig } from '../types';
+import { CategoryConfig } from '../types';
 import { useBookmarks } from '../hooks/useBookmarks';
-import { trackEvent } from '../lib/analytics';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -56,25 +54,27 @@ export const Navbar = () => {
     { name: 'About', path: '/about' },
   ];
 
-  const navLinks = [
-    ...staticLinks,
-    ...categories.map(cat => ({
-      name: cat.name,
-      path: `/category/${cat.slug}`
-    }))
-  ];
-
   return (
-    <nav className="bg-white dark:bg-gray-900 sticky top-0 z-50 border-b border-gray-100 dark:border-gray-800 h-16">
+    <nav style={{ backgroundColor: '#1E3B8B' }} className="sticky top-0 z-50 border-b border-white/10 h-16">
       <div className="max-w-7xl mx-auto px-4 h-full">
         <div className="flex items-center justify-between h-full">
           {/* Logo - Top Left */}
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Briefcase className="h-5 w-5 text-white" />
+            <div className="w-8 h-8 bg-white rounded-sm flex items-center justify-center shadow-sm">
+              <Briefcase className="h-5 w-5 text-[#1E3B8B]" />
             </div>
-            <span className="font-bold text-gray-900 dark:text-white text-lg tracking-tight">
-              {siteName}
+            <span className="font-bold text-white text-lg tracking-tight">
+              {(() => {
+                const parts = siteName.split('&');
+                if (parts.length === 2) {
+                  return (
+                    <>
+                      {parts[0]}<span className="text-[#E8B736]">&</span>{parts[1]}
+                    </>
+                  );
+                }
+                return siteName;
+              })()}
             </span>
           </Link>
 
@@ -82,7 +82,7 @@ export const Navbar = () => {
           <div className="flex items-center space-x-1">
             <button 
               onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+              className="p-2 rounded-sm text-white hover:text-white/80 transition-colors"
             >
               {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -90,84 +90,110 @@ export const Navbar = () => {
         </div>
       </div>
 
-      {/* Slide-down Mobile Menu */}
+      {/* Side Drawer Mobile Menu */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute top-16 left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-xl lg:max-w-7xl lg:mx-auto"
-          >
-            <div className="px-4 py-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest px-3">Main Links</h3>
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 top-16 bg-black/40 z-40"
+            />
+            <motion.div 
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ duration: 0.2 }}
+              style={{
+                position: 'fixed',
+                top: '4rem',
+                right: 0,
+                bottom: 0,
+                width: '50vw',
+                minWidth: '220px',
+                maxWidth: '300px',
+                background: '#fff',
+                overflowY: 'auto',
+                paddingBottom: '96px',
+              }}
+              className="z-50 shadow-sm bg-white"
+            >
+              <div className="p-4 space-y-4">
+                <div className="space-y-1">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest px-3 py-1">Main Links</h3>
                   {staticLinks.map((link) => (
                     <Link
                       key={link.name}
                       to={link.path}
                       onClick={() => setIsOpen(false)}
-                      className="block px-3 py-2 rounded-xl text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      style={{ fontSize: '15px', paddingTop: '12px', paddingBottom: '12px' }}
+                      className="block px-3 rounded-sm text-gray-700 font-medium hover:bg-gray-50 transition-colors"
                     >
                       {link.name}
                     </Link>
                   ))}
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest px-3">Categories</h3>
+                <div className="space-y-1">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest px-3 py-1">Categories</h3>
                   {categories.map((cat) => (
                     <Link
                       key={cat.id}
                       to={`/category/${cat.slug}`}
                       onClick={() => setIsOpen(false)}
-                      className="block px-3 py-2 rounded-xl text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      style={{ fontSize: '15px', paddingTop: '12px', paddingBottom: '12px' }}
+                      className="block px-3 rounded-sm text-gray-700 font-medium hover:bg-gray-50 transition-colors"
                     >
                       {cat.name}
                     </Link>
                   ))}
                 </div>
-              </div>
 
-              <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <button 
-                    onClick={toggleTheme}
-                    className="flex items-center gap-2 px-3 py-2 text-gray-600 dark:text-gray-300 font-medium"
-                  >
-                    <Sun className="h-5 w-5" /> Mode Selection
-                  </button>
-                  <Link 
-                    to="/saved" 
-                    onClick={() => setIsOpen(false)}
-                    className="relative p-2 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
-                  >
-                    <Bookmark className="h-5 w-5" />
-                    {bookmarks.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[10px] rounded-full flex items-center justify-center">{bookmarks.length}</span>}
-                  </Link>
-                </div>
-
-                {user ? (
-                  <div className="flex flex-col gap-2">
-                    {profile?.role === 'admin' && (
-                      <Link to="/admin" onClick={() => setIsOpen(false)} className="w-full py-3 px-4 bg-accent text-white rounded-xl font-bold text-center">
-                        Admin Dashboard
-                      </Link>
-                    )}
-                    <button onClick={() => { auth.signOut(); setIsOpen(false); }} className="w-full py-3 px-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl font-bold flex items-center justify-center gap-2">
-                      <LogOut className="h-4 w-4" /> Sign Out
+                <div className="pt-4 border-t border-gray-100 space-y-4 px-3">
+                  <div className="flex items-center justify-between">
+                    <button 
+                      onClick={toggleTheme}
+                      style={{ fontSize: '15px', paddingTop: '12px', paddingBottom: '12px' }}
+                      className="flex items-center gap-2 text-gray-600 font-medium rounded-sm hover:bg-gray-50 px-2 transition-colors"
+                    >
+                      <Sun className="h-5 w-5" /> Mode Selection
                     </button>
+                    <Link 
+                      to="/saved" 
+                      onClick={() => setIsOpen(false)}
+                      className="relative p-2 rounded-sm bg-gray-50 text-gray-600"
+                    >
+                      <Bookmark className="h-5 w-5" />
+                      {bookmarks.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[10px] rounded-sm flex items-center justify-center">{bookmarks.length}</span>}
+                    </Link>
                   </div>
-                ) : (
-                  <Link to="/admin/login" onClick={() => setIsOpen(false)} className="block w-full py-3 px-4 bg-primary text-white rounded-xl font-bold text-center shadow-lg shadow-primary/20 dark:shadow-none">
-                    Log In
-                  </Link>
-                )}
+
+                  {user ? (
+                    <div className="flex flex-col gap-2">
+                      {profile?.role === 'admin' && (
+                        <Link to="/admin" onClick={() => setIsOpen(false)} style={{ fontSize: '15px', paddingTop: '12px', paddingBottom: '12px' }} className="w-full bg-[#1E3B8B] text-white rounded-sm font-bold text-center">
+                          Admin Dashboard
+                        </Link>
+                      )}
+                      <button onClick={() => { auth.signOut(); setIsOpen(false); }} style={{ fontSize: '15px', paddingTop: '12px', paddingBottom: '12px' }} className="w-full bg-gray-100 text-gray-600 rounded-sm font-bold flex items-center justify-center gap-2">
+                        <LogOut className="h-4 w-4" /> Sign Out
+                      </button>
+                    </div>
+                  ) : (
+                    <Link to="/admin/login" onClick={() => setIsOpen(false)} style={{ fontSize: '15px', paddingTop: '12px', paddingBottom: '12px' }} className="block w-full bg-[#1E3B8B] text-white rounded-sm font-bold text-center">
+                      Log In
+                    </Link>
+                  )}
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </nav>
   );
 };
+
+export default Navbar;

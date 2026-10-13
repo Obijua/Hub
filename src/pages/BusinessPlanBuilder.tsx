@@ -30,8 +30,14 @@ import { db, auth } from '../lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { AlertTriangle, Tag as TagIcon, X } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useSeo } from '../lib/seo';
 
 const BusinessPlanBuilder = () => {
+  useSeo({
+    title: 'Business Plan Builder | Hub & Jobs',
+    description: 'Draft comprehensive business plans easily.',
+    path: '/documents/business-plan'
+  });
   const [step, setStep] = useState(1);
   const [isPaid, setIsPaid] = useState(false);
   const [paymentRef, setPaymentRef] = useState('');

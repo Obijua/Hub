@@ -14,6 +14,7 @@ import { MonetizationConfig } from '../types';
 
 import { Sidebar } from '../components/Sidebar';
 import { Sparkles, X as CloseIcon, FileText, ArrowRight } from 'lucide-react';
+import { useSeo } from '../lib/seo';
 
 const MobileDocPromo = React.forwardRef<HTMLDivElement, { prices: any }>(({ prices }, ref) => (
   <div ref={ref} className="lg:hidden my-6 p-4 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl text-white shadow-lg">
@@ -114,6 +115,11 @@ const MobilePopup = ({ prices }: { prices: any }) => {
 };
 
 export const Blog = () => {
+  useSeo({
+    title: 'Career Advice, Job Search Tips & Guides | Hub & Jobs',
+    description: 'Explore expert career advice, CV writing tips, interview guides, and scholarship application tips in Nigeria.',
+    path: '/blog'
+  });
   const [searchParams, setSearchParams] = useSearchParams();
   const [posts, setPosts] = useState<Post[]>([]);
   const [categories, setCategories] = useState<CategoryConfig[]>([]);

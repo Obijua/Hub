@@ -12,8 +12,14 @@ import {
 } from 'lucide-react';
 import { SEO } from '../components/SEO';
 import { toast } from 'sonner';
+import { useSeo } from '../lib/seo';
 
 export const Contact = () => {
+  useSeo({
+    title: 'Contact Us | Hub & Jobs',
+    description: 'Get in touch with the Hub & Jobs team for support, inquiries, or partnerships.',
+    path: '/contact'
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 

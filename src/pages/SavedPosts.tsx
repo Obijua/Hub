@@ -8,8 +8,14 @@ import { useBookmarks } from '../hooks/useBookmarks';
 import { Bookmark, Trash2, ArrowLeft, Loader2, Star } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { useSeo } from '../lib/seo';
 
 export const SavedPosts = () => {
+  useSeo({
+    title: 'Saved Jobs & Bookmarks | Hub & Jobs',
+    description: 'Access your bookmarked jobs and career resources on Hub & Jobs.',
+    path: '/saved'
+  });
   const { bookmarks, clearAll } = useBookmarks();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);

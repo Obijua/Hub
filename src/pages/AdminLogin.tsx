@@ -5,10 +5,17 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Briefcase, LogIn, Mail, Lock, AlertCircle, User } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useSeo } from '../lib/seo';
 
 const ADMIN_EMAILS = ['obijuaj@gmail.com', 'clementegrinya@gmail.com'];
 
 export const AdminLogin = () => {
+  useSeo({
+    title: 'Admin Login | Hub & Jobs',
+    description: 'Administrator login portal.',
+    path: '/admin/login',
+    noindex: true
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');

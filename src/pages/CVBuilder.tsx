@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import html2pdf from 'html2pdf.js';
+import { useSeo } from '../lib/seo';
 import { 
   User as UserIcon, 
   Briefcase, 
@@ -47,6 +48,11 @@ const SOFT_SKILLS_OPTIONS = [
 ];
 
 const CVBuilder = () => {
+  useSeo({
+    title: 'Free ATS CV Builder | Hub & Jobs',
+    description: 'Build a professional, ATS-optimized CV and download it instantly.',
+    path: '/documents/cv'
+  });
   const [step, setStep] = useState(1);
   const [isPaid, setIsPaid] = useState(false);
   const [paymentRef, setPaymentRef] = useState('');

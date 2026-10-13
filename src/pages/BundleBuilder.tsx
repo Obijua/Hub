@@ -21,8 +21,14 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
+import { useSeo } from '../lib/seo';
 
 const BundleBuilder = () => {
+  useSeo({
+    title: 'Application Document Bundle Builder | Hub & Jobs',
+    description: 'Build complete application bundles including CV, cover letter, and proposal.',
+    path: '/documents/bundle'
+  });
   const [isPaid, setIsPaid] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [email, setEmail] = useState('');

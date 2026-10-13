@@ -15,8 +15,14 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { SEO } from '../components/SEO';
+import { useSeo } from '../lib/seo';
 
 export const About = () => {
+  useSeo({
+    title: 'About Us | Hub & Jobs',
+    description: "Learn about Hub & Jobs, Nigeria's leading career and opportunity portal.",
+    path: '/about'
+  });
   const stats = [
     { label: 'Active Users', value: '50K+', icon: Users },
     { label: 'Opportunities Listed', value: '10K+', icon: Briefcase },

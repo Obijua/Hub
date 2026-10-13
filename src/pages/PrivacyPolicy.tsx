@@ -2,8 +2,14 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Shield, Lock, Eye, FileText, Scale, Mail } from 'lucide-react';
 import { SEO } from '../components/SEO';
+import { useSeo } from '../lib/seo';
 
 export const PrivacyPolicy = () => {
+  useSeo({
+    title: 'Privacy Policy | Hub & Jobs',
+    description: 'Read our privacy policy to understand how we protect your data.',
+    path: '/privacy-policy'
+  });
   const lastUpdated = 'April 9, 2026';
 
   const sections = [

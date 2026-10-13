@@ -38,8 +38,15 @@ import { getAdminPosts, getSubscribersCount, getRecentSubscribers } from '../lib
 import { cn } from '../lib/utils';
 import { Subscriber, MonetizationConfig } from '../types';
 import { doc, getDoc, collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { useSeo } from '../lib/seo';
 
 export const AdminDashboard = () => {
+  useSeo({
+    title: 'Admin Dashboard | Hub & Jobs',
+    description: 'Admin management console.',
+    path: '/admin',
+    noindex: true
+  });
   const [posts, setPosts] = useState<Post[]>([]);
   const [subscriberCount, setSubscriberCount] = useState(0);
   const [recentSubscribers, setRecentSubscribers] = useState<Subscriber[]>([]);

@@ -47,8 +47,15 @@ import { SocialLinks } from '../types';
 import { MessageCircle, Send, Copy, Share2 } from 'lucide-react';
 
 import { format } from 'date-fns';
+import { useSeo } from '../lib/seo';
 
 export const AdminPostFormPage = () => {
+  useSeo({
+    title: 'Post Editor | Hub & Jobs',
+    description: 'Create or edit post content.',
+    path: location.pathname,
+    noindex: true
+  });
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;

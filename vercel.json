@@ -5,6 +5,18 @@
       "destination": "/api/$1"
     },
     {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/post/:slug",
+      "destination": "/api/page?type=post&slug=:slug"
+    },
+    {
+      "source": "/category/:slug",
+      "destination": "/api/page?type=category&slug=:slug"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

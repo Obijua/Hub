@@ -9,10 +9,41 @@ import {
 } from 'lucide-react';
 import { collection, query, orderBy, onSnapshot, getDocs, where, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Post } from '../types';
+import { Post, CategoryConfig } from '../types';
 import AdUnit from '../components/AdUnit';
+import { useSeo, setJsonLd } from '../lib/seo';
 
 export const HomePage = () => {
+  const currentYear = new Date().getFullYear();
+  useSeo({
+    title: `Hub & Jobs | Jobs in Nigeria, Scholarships & Opportunities (${currentYear})`,
+    description: `Find the latest job vacancies in Nigeria, remote jobs, scholarships, internships, and free courses. Apply today on Hub & Jobs.`,
+    path: '/'
+  });
+
+  useEffect(() => {
+    return setJsonLd('home-jsonld', {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "name": "Hub & Jobs",
+          "url": "https://www.hubandjobs.com/",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.hubandjobs.com/search?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "Organization",
+          "name": "Hub & Jobs",
+          "url": "https://www.hubandjobs.com/",
+          "logo": "https://www.hubandjobs.com/logo.png"
+        }
+      ]
+    });
+  }, []);
   const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +52,16 @@ export const HomePage = () => {
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
   const [adConfig, setAdConfig] = useState<any>(null);
 
-  const categories = ['All', 'Technology', 'Finance', 'Marketing', 'Design', 'Sales', 'Engineering'];
+  const [categories, setCategories] = useState<CategoryConfig[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory]);
 
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
@@ -35,6 +75,24 @@ export const HomePage = () => {
     }, (error) => {
       console.error("Error fetching posts:", error);
       setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'categories'),
+      where('isActive', '==', true),
+      orderBy('displayOrder', 'asc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const cats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryConfig));
+      setCategories(cats);
+      setCategoriesLoading(false);
+    }, (error) => {
+      console.error("Error fetching categories:", error);
+      setCategoriesLoading(false);
     });
 
     return () => unsubscribe();
@@ -85,10 +143,49 @@ export const HomePage = () => {
     const comp = pAny.company || pAny.employer || '';
     const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           comp.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || 
-                            (post.category && post.category.toLowerCase() === selectedCategory.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || (() => {
+      if (!post.category) return false;
+      const postCat = String(post.category).toLowerCase().trim();
+      const sel = selectedCategory.toLowerCase().trim();
+      if (postCat === sel) return true;
+      const matchedCat = categories.find(c => c.slug.toLowerCase() === sel || c.name.toLowerCase() === sel);
+      if (matchedCat) {
+        return postCat === matchedCat.slug.toLowerCase() || postCat === matchedCat.name.toLowerCase();
+      }
+      return false;
+    })();
     return matchesSearch && matchesCategory;
   });
+
+  const totalPages = Math.ceil(filteredPosts.length / PAGE_SIZE) || 1;
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const currentPosts = filteredPosts.slice(startIndex, startIndex + PAGE_SIZE);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      if (currentPage > 3) {
+        pages.push('...');
+      }
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        if (!pages.includes(i)) {
+          pages.push(i);
+        }
+      }
+      if (currentPage < totalPages - 2) {
+        pages.push('...');
+      }
+      if (!pages.includes(totalPages)) {
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  };
 
   return (
     <div className="min-h-screen bg-[#EEF2FF] px-4 pt-4 pb-24">
@@ -110,22 +207,40 @@ export const HomePage = () => {
 
       {/* Category Filter Chips */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4 pb-1">
-        {categories.map((cat) => {
-          const isActive = selectedCategory === cat;
-          return (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-all ${
-                isActive 
-                  ? 'bg-[#1E3B8B] text-white font-semibold' 
-                  : 'bg-white text-slate-600 shadow-sm hover:bg-slate-50'
-              }`}
-            >
-              {cat}
-            </button>
-          );
-        })}
+        <button
+          onClick={() => setSelectedCategory('All')}
+          className={`px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-all ${
+            selectedCategory === 'All' 
+              ? 'bg-[#1E3B8B] text-white font-semibold' 
+              : 'bg-white text-slate-600 shadow-sm hover:bg-slate-50'
+          }`}
+        >
+          All
+        </button>
+        {categoriesLoading ? (
+          <>
+            <div className="w-20 h-8 bg-white shadow-sm rounded-sm animate-pulse" />
+            <div className="w-24 h-8 bg-white shadow-sm rounded-sm animate-pulse" />
+            <div className="w-16 h-8 bg-white shadow-sm rounded-sm animate-pulse" />
+          </>
+        ) : (
+          categories.map((cat) => {
+            const isActive = selectedCategory === cat.slug;
+            return (
+              <button
+                key={cat.id || cat.slug}
+                onClick={() => setSelectedCategory(cat.slug)}
+                className={`px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-all ${
+                  isActive 
+                    ? 'bg-[#1E3B8B] text-white font-semibold' 
+                    : 'bg-white text-slate-600 shadow-sm hover:bg-slate-50'
+                }`}
+              >
+                {cat.name}
+              </button>
+            );
+          })
+        )}
       </div>
 
       {/* Section Title */}
@@ -149,7 +264,7 @@ export const HomePage = () => {
             <div key={n} className="bg-white shadow-sm rounded-sm p-4 h-32 animate-pulse" />
           ))}
         </div>
-      ) : filteredPosts.length === 0 ? (
+      ) : currentPosts.length === 0 ? (
         <div className="bg-white shadow-sm rounded-sm p-8 text-center mt-4">
           <Briefcase size={40} className="mx-auto text-slate-300 mb-2" />
           <p className="font-semibold text-slate-700 text-sm">No jobs found</p>
@@ -157,7 +272,7 @@ export const HomePage = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredPosts.map((post, index) => {
+          {currentPosts.map((post, index) => {
             const isSaved = savedPostIds.includes(post.id);
             const pAny = post as any;
             const companyName = pAny.company || pAny.employer || 'Featured Employer';
@@ -238,6 +353,55 @@ export const HomePage = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!loading && filteredPosts.length > 0 && totalPages > 1 && (
+        <div className="mt-6 mb-6">
+          <div className="flex items-center justify-center flex-wrap gap-1.5">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className={`min-w-[40px] min-h-[40px] px-3 flex items-center justify-center text-sm font-medium rounded-sm bg-white text-slate-700 border border-slate-200 shadow-sm transition-all ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'}`}
+            >
+              Prev
+            </button>
+
+            {getPageNumbers().map((p, idx) => {
+              if (p === '...') {
+                return (
+                  <span key={`ellipsis-${idx}`} className="min-w-[40px] min-h-[40px] flex items-center justify-center text-slate-400 text-sm">
+                    …
+                  </span>
+                );
+              }
+              const pageNum = Number(p);
+              const isActive = currentPage === pageNum;
+              return (
+                <button
+                  key={`page-${pageNum}`}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`min-w-[40px] min-h-[40px] flex items-center justify-center text-sm font-semibold rounded-sm shadow-sm transition-all ${
+                    isActive
+                      ? 'bg-[#1E3B8B] text-white'
+                      : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className={`min-w-[40px] min-h-[40px] px-3 flex items-center justify-center text-sm font-medium rounded-sm bg-white text-slate-700 border border-slate-200 shadow-sm transition-all ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'}`}
+            >
+              Next
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 text-center mt-2">Page {currentPage} of {totalPages}</p>
         </div>
       )}
 

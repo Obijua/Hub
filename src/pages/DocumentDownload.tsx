@@ -6,8 +6,14 @@ import { DocumentHTML } from '../components/DocumentPreview';
 import html2pdf from 'html2pdf.js';
 import { Download, ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSeo } from '../lib/seo';
 
 export const DocumentDownload = () => {
+  useSeo({
+    title: 'Download Document | Hub & Jobs',
+    description: 'Download your professional document.',
+    path: location.pathname
+  });
   const { type, docId } = useParams();
   const navigate = useNavigate();
   const [docData, setDocData] = useState<any>(null);

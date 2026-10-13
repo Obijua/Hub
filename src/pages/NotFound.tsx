@@ -1,8 +1,16 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowRight, Home } from 'lucide-react';
+import { useSeo } from '../lib/seo';
 
 export const NotFound = () => {
+  const location = useLocation();
+  useSeo({
+    title: 'Page Not Found | Hub & Jobs',
+    description: 'The page you are looking for does not exist.',
+    path: location.pathname,
+    noindex: true
+  });
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 sm:px-6 lg:px-8 py-20">
       <div className="max-w-md w-full text-center">

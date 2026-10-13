@@ -11,8 +11,15 @@ import {
 import { collection, query, orderBy, onSnapshot, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
+import { useSeo } from '../lib/seo';
 
 export const JobsPage = () => {
+  const currentYear = new Date().getFullYear();
+  useSeo({
+    title: `Latest Jobs in Nigeria (${currentYear}) | Hub & Jobs`,
+    description: `Browse and apply for the latest job openings across Lagos, Abuja, Port Harcourt and remote locations in Nigeria.`,
+    path: '/jobs'
+  });
   const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);

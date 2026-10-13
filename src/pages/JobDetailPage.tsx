@@ -6,6 +6,7 @@ import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import { toast } from 'sonner';
 import AdUnit from '../components/AdUnit';
+import { useSeo } from '../lib/seo';
 
 export const JobDetailPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -17,6 +18,16 @@ export const JobDetailPage = () => {
   const [loading, setLoading] = useState(!stateJob);
   const [hasApplied, setHasApplied] = useState(false);
   const [adConfig, setAdConfig] = useState<any>(null);
+
+  const seoPath = job?.slug ? `/post/${job.slug}` : location.pathname;
+  const noindex = job ? !job.slug : false;
+
+  useSeo({
+    title: job ? `${job.title} | Hub & Jobs` : 'Job Vacancy | Hub & Jobs',
+    description: job ? (job.description || 'Apply for this job opening on Hub & Jobs.') : 'View job details and apply on Hub & Jobs.',
+    path: seoPath,
+    noindex: noindex
+  });
 
   useEffect(() => {
     const fetchJob = async () => {

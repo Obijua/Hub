@@ -17,8 +17,14 @@ import { auth, db } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useSeo } from '../lib/seo';
 
 export const ProfilePage = () => {
+  useSeo({
+    title: 'My Profile | Hub & Jobs',
+    description: 'Manage your profile, saved jobs, and preferences on Hub & Jobs.',
+    path: '/profile'
+  });
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
   const [applications, setApplications] = useState<any[]>([]);

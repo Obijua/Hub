@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Post, Category as CategoryType, CategoryConfig, MonetizationConfig } from '../types';
+import { useSeo } from '../lib/seo';
 import { 
   Briefcase, 
   GraduationCap, 
@@ -138,6 +139,12 @@ export const Category = () => {
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'deadline'>('newest');
   const [visibleCount, setVisibleCount] = useState(12);
   const [meta, setMeta] = useState<CategoryConfig | null>(null);
+
+  useSeo({
+    title: meta ? `${meta.name} Opportunities in Nigeria | Hub & Jobs` : `${slug?.toUpperCase() || 'Category'} | Hub & Jobs`,
+    description: meta?.description || `Explore latest ${meta?.name || slug} opportunities, jobs, and updates in Nigeria on Hub & Jobs.`,
+    path: `/category/${slug}`
+  });
   const [monetization, setMonetization] = useState<MonetizationConfig | null>(null);
   const [docPrices, setDocPrices] = useState<any>(null);
 

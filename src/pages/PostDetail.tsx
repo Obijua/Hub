@@ -24,12 +24,124 @@ import { Post } from '../types';
 import { Helmet } from 'react-helmet-async';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { useSeo, setJsonLd } from '../lib/seo';
 
 export const PostDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  useSeo({
+    title: post ? `${post.title} | Hub & Jobs` : 'Opportunity Details | Hub & Jobs',
+    description: post ? (post.description || post.title) : 'Read details on Hub & Jobs.',
+    path: `/post/${slug}`,
+    image: post?.thumbnail
+  });
+
+  useEffect(() => {
+    if (!post) return;
+
+    const cat = (post.category || '').toLowerCase();
+    const isJob = cat === 'job' || cat === 'internship' || (
+      cat && 
+      !['scholarship', 'free-course', 'udemy-coupon', 'opportunity', 'blog', 'course', 'courses'].includes(cat) &&
+      !cat.includes('scholarship') &&
+      !cat.includes('course') &&
+      !cat.includes('opportunity')
+    );
+
+    let jsonLdData: any = null;
+
+    if (isJob) {
+      const p = post as any;
+      const jobPosting: any = {
+        "@context": "https://schema.org",
+        "@type": "JobPosting",
+        "directApply": false
+      };
+
+      if (post.title) jobPosting.title = post.title;
+      if (post.description) jobPosting.description = post.description;
+
+      const datePosted = post.createdAt?.toDate ? post.createdAt.toDate().toISOString() : (post.createdAt ? new Date(post.createdAt).toISOString() : null);
+      if (datePosted) jobPosting.datePosted = datePosted;
+
+      if (p.jobType) {
+        const jt = p.jobType.toUpperCase().replace(/[- ]/g, '_');
+        if (['FULL_TIME', 'PART_TIME', 'CONTRACTOR', 'INTERN', 'TEMPORARY'].includes(jt)) {
+          jobPosting.employmentType = jt;
+        }
+      }
+
+      if (p.company) {
+        jobPosting.hiringOrganization = {
+          "@type": "Organization",
+          "name": p.company
+        };
+      }
+
+      if (post.location) {
+        jobPosting.jobLocation = {
+          "@type": "Place",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": post.location,
+            "addressCountry": "NG"
+          }
+        };
+      }
+
+      if (post.salary && /\d/.test(post.salary) && !post.salary.toLowerCase().includes('competitive')) {
+        jobPosting.baseSalary = {
+          "@type": "MonetaryAmount",
+          "currency": "NGN",
+          "value": post.salary
+        };
+      }
+
+      const validThrough = post.deadline?.toDate ? post.deadline.toDate().toISOString() : (post.deadline ? new Date(post.deadline).toISOString() : null);
+      if (validThrough) {
+        jobPosting.validThrough = validThrough;
+      }
+
+      const isRemote = p.isRemote || (post.location && post.location.toLowerCase().includes('remote')) || post.tags?.some(t => t.toLowerCase() === 'remote');
+      if (isRemote) {
+        jobPosting.jobLocationType = "TELECOMMUTE";
+        jobPosting.applicantLocationRequirements = {
+          "@type": "Country",
+          "name": "Nigeria"
+        };
+      }
+
+      jsonLdData = jobPosting;
+    } else {
+      const article: any = {
+        "@context": "https://schema.org",
+        "@type": "Article"
+      };
+
+      if (post.title) article.headline = post.title;
+      if (post.description) article.description = post.description;
+      if (post.thumbnail) article.image = post.thumbnail;
+
+      const datePublished = post.createdAt?.toDate ? post.createdAt.toDate().toISOString() : (post.createdAt ? new Date(post.createdAt).toISOString() : null);
+      if (datePublished) article.datePublished = datePublished;
+
+      article.publisher = {
+        "@type": "Organization",
+        "name": "Hub & Jobs",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://www.hubandjobs.com/logo.png"
+        }
+      };
+
+      jsonLdData = article;
+    }
+
+    return setJsonLd(`post-jsonld-${post.id}`, jsonLdData);
+  }, [post]);
 
   useEffect(() => {
     const fetchPost = async () => {

@@ -6,8 +6,14 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Link } from 'react-router-dom';
+import { useSeo } from '../lib/seo';
 
 export const MyDocuments = () => {
+  useSeo({
+    title: 'My Saved Documents | Hub & Jobs',
+    description: 'View and download your saved CVs, proposals, and business plans.',
+    path: '/my-documents'
+  });
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);

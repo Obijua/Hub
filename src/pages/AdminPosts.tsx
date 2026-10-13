@@ -21,8 +21,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import { getAdminPosts, deletePost, updatePost } from '../lib/posts';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
+import { useSeo } from '../lib/seo';
 
 export const AdminPosts = () => {
+  useSeo({
+    title: 'Manage Posts | Hub & Jobs',
+    description: 'Manage admin posts and listings.',
+    path: '/admin/posts',
+    noindex: true
+  });
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

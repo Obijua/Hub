@@ -1,17 +1,6 @@
 User-agent: *
 Allow: /
-
-# Block only admin pages
 Disallow: /admin
-Disallow: /admin/
-
-# Allow everything else including all posts,
-# categories, blog, documents landing page
-Allow: /post/
-Allow: /category/
-Allow: /blog
-Allow: /documents
-Allow: /search
-
-# Sitemap location
+Disallow: /login
+Disallow: /profile
 Sitemap: https://www.hubandjobs.com/sitemap.xml
