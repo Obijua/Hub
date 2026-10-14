@@ -1,5 +1,10 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import firebaseConfig from '../firebase-applet-config.json';
+
+const firebaseConfig = {
+  projectId: "gen-lang-client-0480166612",
+  apiKey: "AIzaSyD-OXJWKbcGkonKqvFtKfvgHxNQxLfsGCk",
+  firestoreDatabaseId: "ai-studio-4bf2f3e8-c4c1-46a4-b89d-ff92002e9be3"
+};
 
 function parseFirestoreField(field: any): any {
   if (!field) return null;
