@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Share2, MapPin, Briefcase, ExternalLink, MessageCircle } from 'lucide-react';
 import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore';
@@ -6,7 +6,7 @@ import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import { toast } from 'sonner';
 import AdUnit from '../components/AdUnit';
-import { useSeo } from '../lib/seo';
+import { useSeo, setJsonLd } from '../lib/seo';
 import { incrementViews } from '../lib/posts';
 
 export const JobDetailPage = () => {
@@ -23,12 +23,146 @@ export const JobDetailPage = () => {
   const seoPath = job?.slug ? `/post/${job.slug}` : (job?.id ? `/jobs/${job.id}` : location.pathname);
   const noindex = job ? !job.slug : false;
 
+  const pAny = job as any;
+  const companyName = 
+    pAny?.company || 
+    pAny?.companyName || 
+    pAny?.employer ||
+    pAny?.organizationName || 
+    pAny?.recruiterCompany || '';
+
+  const locationText = job?.location || '';
+
+  const pageTitle = useMemo(() => {
+    if (!job?.title) return 'Job Vacancy | Hub & Jobs';
+    let T = job.title;
+    if (T && T === T.toUpperCase() && /[A-Z]/.test(T)) {
+      T = T.toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
+    }
+    const hasComp = companyName && String(companyName).trim() !== '' && companyName !== 'Featured Employer';
+    const hasLoc = locationText && String(locationText).trim() !== '';
+
+    if (hasComp && hasLoc) {
+      return `${T} at ${companyName} – ${locationText} | Hub & Jobs`;
+    } else if (hasLoc) {
+      return `${T} in ${locationText} | Hub & Jobs`;
+    } else if (hasComp) {
+      return `${T} at ${companyName} | Hub & Jobs`;
+    } else {
+      return `${T} | Hub & Jobs`;
+    }
+  }, [job, companyName, locationText]);
+
   useSeo({
-    title: job?.title ? `${job.title} | Hub & Jobs` : 'Job Vacancy | Hub & Jobs',
+    title: pageTitle,
     description: job?.description ? (job.description.replace(/<[^>]*>?/gm, '').slice(0, 160)) : 'View job details and apply on Hub & Jobs.',
     path: seoPath,
     noindex: noindex
   });
+
+  const jsonLdData = useMemo(() => {
+    if (!job) return null;
+
+    const cat = (job.category || '').toLowerCase();
+    const isJob = cat === 'job' || cat === 'internship' || (
+      cat && 
+      !['scholarship', 'free-course', 'udemy-coupon', 'opportunity', 'blog', 'course', 'courses'].includes(cat) &&
+      !cat.includes('scholarship') &&
+      !cat.includes('course') &&
+      !cat.includes('opportunity')
+    );
+
+    if (isJob) {
+      if (!job.title || !job.description || !job.createdAt || !companyName || String(companyName).trim() === '' || companyName === 'Featured Employer' || !job.location || String(job.location).trim() === '') {
+        return null;
+      }
+
+      const jobPosting: any = {
+        "@context": "https://schema.org",
+        "@type": "JobPosting",
+        "directApply": false
+      };
+
+      if (job.title) jobPosting.title = job.title;
+      if (job.description) jobPosting.description = job.description;
+
+      const datePosted = job.createdAt?.toDate ? job.createdAt.toDate().toISOString() : (job.createdAt ? new Date(job.createdAt).toISOString() : null);
+      if (datePosted) jobPosting.datePosted = datePosted;
+
+      if (pAny.jobType) {
+        const jt = pAny.jobType.toUpperCase().replace(/[- ]/g, '_');
+        if (['FULL_TIME', 'PART_TIME', 'CONTRACTOR', 'INTERN', 'TEMPORARY'].includes(jt)) {
+          jobPosting.employmentType = jt;
+        }
+      }
+
+      jobPosting.hiringOrganization = {
+        "@type": "Organization",
+        "name": companyName
+      };
+
+      jobPosting.jobLocation = {
+        "@type": "Place",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": job.location,
+          "addressCountry": "NG"
+        }
+      };
+
+      if (job.salary && /\d/.test(job.salary) && !job.salary.toLowerCase().includes('competitive')) {
+        jobPosting.baseSalary = {
+          "@type": "MonetaryAmount",
+          "currency": "NGN",
+          "value": job.salary
+        };
+      }
+
+      const validThrough = job.deadline?.toDate ? job.deadline.toDate().toISOString() : (job.deadline ? new Date(job.deadline).toISOString() : null);
+      if (validThrough) {
+        jobPosting.validThrough = validThrough;
+      }
+
+      const isRemote = pAny.isRemote || (job.location && job.location.toLowerCase().includes('remote')) || job.tags?.some((t: string) => t.toLowerCase() === 'remote');
+      if (isRemote) {
+        jobPosting.jobLocationType = "TELECOMMUTE";
+        jobPosting.applicantLocationRequirements = {
+          "@type": "Country",
+          "name": "Nigeria"
+        };
+      }
+
+      return jobPosting;
+    } else {
+      const article: any = {
+        "@context": "https://schema.org",
+        "@type": "Article"
+      };
+
+      if (job.title) article.headline = job.title;
+      if (job.description) article.description = job.description;
+      if (job.thumbnail) article.image = job.thumbnail;
+
+      const datePublished = job.createdAt?.toDate ? job.createdAt.toDate().toISOString() : (job.createdAt ? new Date(job.createdAt).toISOString() : null);
+      if (datePublished) article.datePublished = datePublished;
+
+      const dateModified = pAny.updatedAt?.toDate ? pAny.updatedAt.toDate().toISOString() : (pAny.updatedAt ? new Date(pAny.updatedAt).toISOString() : null);
+      if (dateModified) article.dateModified = dateModified;
+
+      article.publisher = {
+        "@type": "Organization",
+        "name": "Hub & Jobs",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://www.hubandjobs.com/logo.png"
+        }
+      };
+
+      return article;
+    }
+  }, [job, companyName]);
+
+  setJsonLd(job?.id ? `post-jsonld-${job.id}` : 'post-jsonld-placeholder', jsonLdData);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -95,15 +229,7 @@ export const JobDetailPage = () => {
     checkApplication();
   }, [job]);
 
-  const pAny = job as any;
-  const companyName = 
-    pAny?.company || 
-    pAny?.companyName || 
-    pAny?.employer ||
-    pAny?.organizationName || 
-    pAny?.recruiterCompany || '';
-
-  const locationText = job?.location || 'Nigeria';
+  const displayLocation = job?.location || 'Nigeria';
   
   const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 
     'Internship', 'Contract', 'Freelance'];
@@ -377,7 +503,7 @@ export const JobDetailPage = () => {
 
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
           <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <MapPin size={12} /> {locationText}
+            <MapPin size={12} /> {displayLocation}
           </span>
           <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Briefcase size={12} /> {jobType}

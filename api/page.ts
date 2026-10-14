@@ -271,7 +271,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let image = 'https://www.hubandjobs.com/og-image.jpg';
 
     if (type === 'post' || type === 'job') {
-      title = docData.title ? `${docData.title} | Hub & Jobs` : 'Opportunity Details | Hub & Jobs';
+      let T = docData.title || '';
+      if (T && T === T.toUpperCase() && /[A-Z]/.test(T)) {
+        T = T.toLowerCase().replace(/(^|\s)\S/g, (l: string) => l.toUpperCase());
+      }
+      const company = docData.company || docData.companyName || docData.employer || docData.organizationName || docData.recruiterCompany || '';
+      const location = docData.location || '';
+
+      const hasComp = company && String(company).trim() !== '' && company !== 'Featured Employer';
+      const hasLoc = location && String(location).trim() !== '';
+
+      if (hasComp && hasLoc) {
+        title = `${T} at ${company} – ${location} | Hub & Jobs`;
+      } else if (hasLoc) {
+        title = `${T} in ${location} | Hub & Jobs`;
+      } else if (hasComp) {
+        title = `${T} at ${company} | Hub & Jobs`;
+      } else {
+        title = T ? `${T} | Hub & Jobs` : 'Opportunity Details | Hub & Jobs';
+      }
+
       const rawDesc = docData.description || docData.title || '';
       description = stripHtml(rawDesc).slice(0, 150) || 'Read details on Hub & Jobs.';
     } else if (type === 'category') {
