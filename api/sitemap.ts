@@ -35,16 +35,26 @@ function parseFirestoreDoc(doc: any): any {
 }
 
 async function fetchAllPosts(projectId: string, dbId: string, apiKey: string) {
-  let posts: any[] = [];
-  let pageToken: string | null = null;
-  let fetchedCount = 0;
-
-  do {
-    let url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/posts?pageSize=300&key=${apiKey}`;
-    if (pageToken) {
-      url += `&pageToken=${encodeURIComponent(pageToken)}`;
-    }
-    const res = await fetch(url);
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents:runQuery?key=${apiKey}`;
+    const body = {
+      structuredQuery: {
+        from: [{ collectionId: 'posts' }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: 'isActive' },
+            op: 'EQUAL',
+            value: { booleanValue: true }
+          }
+        },
+        limit: 1000
+      }
+    };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
     if (!res.ok) {
       const respText = await res.text();
       const detail = respText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
@@ -52,17 +62,28 @@ async function fetchAllPosts(projectId: string, dbId: string, apiKey: string) {
       console.error(msg);
       throw new Error(msg);
     }
-    const data = await res.json();
-    const docs = data.documents || [];
-    for (const d of docs) {
-      posts.push(parseFirestoreDoc(d));
-      fetchedCount++;
-      if (fetchedCount >= 1000) break;
+    const results = await res.json();
+    const posts: any[] = [];
+    for (const row of results) {
+      if (row.document) {
+        posts.push(parseFirestoreDoc(row.document));
+      }
     }
-    pageToken = data.nextPageToken || null;
-  } while (pageToken && fetchedCount < 1000);
-
-  return posts;
+    posts.sort((a, b) => {
+      const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+    return posts;
+  } catch (e: any) {
+    if (e.message && e.message.startsWith('Error generating sitemap')) {
+      throw e;
+    }
+    const sanitizedMsg = String(e.message || e).replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    const msg = `Error generating sitemap | step: posts | status: 0 | detail: ${sanitizedMsg.slice(0, 300)}`;
+    console.error(msg);
+    throw new Error(msg);
+  }
 }
 
 async function fetchCategories(projectId: string, dbId: string, apiKey: string) {

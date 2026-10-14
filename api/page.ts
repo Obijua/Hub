@@ -40,10 +40,24 @@ async function queryFirestoreBySlug(collectionId: string, slug: string, projectI
     structuredQuery: {
       from: [{ collectionId }],
       where: {
-        fieldFilter: {
-          field: { fieldPath: 'slug' },
-          op: 'EQUAL',
-          value: { stringValue: slug }
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'slug' },
+                op: 'EQUAL',
+                value: { stringValue: slug }
+              }
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'isActive' },
+                op: 'EQUAL',
+                value: { booleanValue: true }
+              }
+            }
+          ]
         }
       },
       limit: 1
@@ -198,6 +212,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else if (type === 'category') {
       docData = await queryCategoryBySlug(slug, projectId, dbId, apiKey);
       path = `/category/${slug}`;
+    } else if (type === 'job') {
+      docData = await queryFirestoreBySlug('posts', slug, projectId, dbId, apiKey);
+      path = `/jobs/${slug}`;
     }
 
     if (!docData) {
@@ -210,7 +227,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let description = '';
     let image = 'https://www.hubandjobs.com/og-image.jpg';
 
-    if (type === 'post') {
+    if (type === 'post' || type === 'job') {
       title = docData.title ? `${docData.title} | Hub & Jobs` : 'Opportunity Details | Hub & Jobs';
       const rawDesc = docData.description || docData.title || '';
       description = stripHtml(rawDesc).slice(0, 150) || 'Read details on Hub & Jobs.';
