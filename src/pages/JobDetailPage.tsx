@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Share2, MapPin, Briefcase, ExternalLink, MessageCircle } from 'lucide-react';
-import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import { toast } from 'sonner';
 import AdUnit from '../components/AdUnit';
 import { useSeo } from '../lib/seo';
+import { incrementViews } from '../lib/posts';
 
 export const JobDetailPage = () => {
-  const { jobId } = useParams<{ jobId: string }>();
+  const { jobId, slug } = useParams<{ jobId?: string; slug?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const stateJob = (location.state as { job?: Post })?.job;
@@ -19,7 +20,7 @@ export const JobDetailPage = () => {
   const [hasApplied, setHasApplied] = useState(false);
   const [adConfig, setAdConfig] = useState<any>(null);
 
-  const seoPath = job?.slug ? `/post/${job.slug}` : location.pathname;
+  const seoPath = job?.slug ? `/post/${job.slug}` : (job?.id ? `/jobs/${job.id}` : location.pathname);
   const noindex = job ? !job.slug : false;
 
   useSeo({
@@ -31,14 +32,28 @@ export const JobDetailPage = () => {
 
   useEffect(() => {
     const fetchJob = async () => {
-      if (stateJob || !jobId) return;
+      if (stateJob) return;
       try {
-        const docRef = doc(db, 'posts', jobId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setJob({ id: docSnap.id, ...docSnap.data() } as Post);
-        } else {
-          toast.error('Job not found');
+        setLoading(true);
+        if (slug) {
+          const q = query(collection(db, 'posts'), where('slug', '==', slug), limit(1));
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            const docSnap = querySnapshot.docs[0];
+            const data = { id: docSnap.id, ...docSnap.data() } as Post;
+            setJob(data);
+            incrementViews(data.id);
+          } else {
+            toast.error('Post not found');
+          }
+        } else if (jobId) {
+          const docRef = doc(db, 'posts', jobId);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setJob({ id: docSnap.id, ...docSnap.data() } as Post);
+          } else {
+            toast.error('Job not found');
+          }
         }
       } catch (e) {
         console.error(e);
@@ -48,7 +63,7 @@ export const JobDetailPage = () => {
       }
     };
     fetchJob();
-  }, [jobId, stateJob]);
+  }, [jobId, slug, stateJob]);
 
   useEffect(() => {
     const fetchAdConfig = async () => {
@@ -127,7 +142,8 @@ export const JobDetailPage = () => {
   };
 
   const handleShare = () => {
-    const text = encodeURIComponent(`Check out this job: ${job?.title || 'Job Opening'} at ${companyName || 'Hub & Jobs'}. View on Hub & Jobs: ${window.location.href}`);
+    const postUrl = job?.slug ? `https://www.hubandjobs.com/post/${job.slug}` : `https://www.hubandjobs.com/jobs/${job?.id || jobId || ''}`;
+    const text = encodeURIComponent(`Check out this job: ${job?.title || 'Job Opening'} at ${companyName || 'Hub & Jobs'}. View on Hub & Jobs: ${postUrl}`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 

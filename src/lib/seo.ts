@@ -35,6 +35,17 @@ export function setJsonLd(id: string, data: object | null) {
   };
 }
 
+function stripHtml(html: string): string {
+  if (!html) return '';
+  return String(html)
+    .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6]|ul|ol)>/gi, ' ')
+    .replace(/<[^>]*>?/gm, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function useSeo({
   title,
   description,
@@ -48,10 +59,8 @@ export function useSeo({
     document.title = title;
 
     // 2. Clean description: strip HTML and truncate to 160 chars
-    const cleanDesc = description
-      .replace(/<[^>]*>?/gm, '')
-      .slice(0, 160)
-      .trim();
+    const cleanDesc = stripHtml(description)
+      .slice(0, 160);
 
     // 3. Canonical URL: no query string, no trailing slash except root
     const cleanPath = path.split('?')[0];

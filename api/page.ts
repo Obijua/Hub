@@ -155,7 +155,13 @@ function escapeHtml(str: string): string {
 
 function stripHtml(html: string): string {
   if (!html) return '';
-  return html.replace(/<[^>]*>?/gm, '').trim();
+  return String(html)
+    .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6]|ul|ol)>/gi, ' ')
+    .replace(/<[^>]*>?/gm, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

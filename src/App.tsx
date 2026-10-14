@@ -133,7 +133,7 @@ const AppRoutes = () => {
           <Route path="/jobs/:jobId" element={<JobDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/category/:slug" element={<Category />} />
-          <Route path="/post/:slug" element={<PostDetail />} />
+          <Route path="/post/:slug" element={<JobDetailPage />} />
           <Route path="/saved" element={<SavedPosts />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/documents" element={<DocumentsPage />} />
