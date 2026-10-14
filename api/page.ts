@@ -268,17 +268,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       title = docData.title ? `${docData.title} | Hub & Jobs` : 'Opportunity Details | Hub & Jobs';
       const rawDesc = docData.description || docData.title || '';
       description = stripHtml(rawDesc).slice(0, 150) || 'Read details on Hub & Jobs.';
-
-      if (docData.thumbnail) {
-        image = docData.thumbnail;
-      } else if (docData.ogImage) {
-        image = docData.ogImage;
-      }
     } else if (type === 'category') {
       const catName = docData.name || slug;
       title = docData.name ? `${docData.name} Opportunities in Nigeria | Hub & Jobs` : `${slug?.toUpperCase() || 'Category'} | Hub & Jobs`;
       description = docData.description ? stripHtml(docData.description).slice(0, 150) : `Explore latest ${catName} opportunities, jobs, and updates in Nigeria on Hub & Jobs.`;
     }
+
+    const candidateImage = docData.thumbnail || docData.ogImage || docData.image || '';
+    if (typeof candidateImage === 'string' && candidateImage.startsWith('https://')) {
+      image = candidateImage;
+    }
+
+    const isDefaultImage = image === 'https://www.hubandjobs.com/og-image.jpg';
 
     const escapedTitle = escapeHtml(title);
     const escapedDesc = escapeHtml(description);
@@ -289,7 +290,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Remove existing title, meta, canonical, og, twitter tags
     html = html.replace(/<title\b[^>]*>[\s\S]*?<\/title>/gi, '');
-    html = html.replace(/<meta\b[^>]*\b(?:name|property)=["'](?:description|robots|og:[^"']+|twitter:[^"']+)["'][^>]*>/gi, '');
+    html = html.replace(/<meta\b[^>]*\b(?:name|property)=["'](?:description|robots|og:[^"']+|twitter:[^"']+|og:image:[^"']+)["'][^>]*>/gi, '');
     html = html.replace(/<link\s+rel=["']canonical["'][^>]*\/?>/gi, '');
 
     const seoTags = `
@@ -301,11 +302,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   <meta property="og:description" content="${escapedDesc}" />
   <meta property="og:url" content="${escapedCanonical}" />
   <meta property="og:type" content="website" />
-  ${image ? `<meta property="og:image" content="${escapedImage}" />` : ''}
+  <meta property="og:image" content="${escapedImage}" />
+  ${isDefaultImage ? '<meta property="og:image:width" content="1200" />\n  <meta property="og:image:height" content="630" />' : ''}
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapedTitle}" />
   <meta name="twitter:description" content="${escapedDesc}" />
-  ${image ? `<meta name="twitter:image" content="${escapedImage}" />` : ''}
+  <meta name="twitter:image" content="${escapedImage}" />
 </head>`;
 
     html = html.replace('</head>', () => seoTags);

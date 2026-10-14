@@ -167,6 +167,15 @@ export const PostDetail = () => {
     fetchPost();
   }, [slug]);
 
+  const cleanHtml = (html: string): string => {
+    if (!html) return '';
+    const withoutBr = html
+      .replace(/([a-zA-Z])<br\s*\/?>\s*([a-zA-Z])/gi, '$1$2')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/  +/g, ' ');
+    return withoutBr.replace(/\s*style="[^"]*"/gi, '').replace(/\s*style='[^']*'/gi, '');
+  };
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
@@ -187,7 +196,7 @@ export const PostDetail = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-sm h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -224,7 +233,7 @@ export const PostDetail = () => {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl shadow-gray-200/20 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
+          className="bg-white dark:bg-gray-900 rounded-sm shadow-xl shadow-gray-200/20 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
         >
           {/* IMAGE HEADER */}
           {post.thumbnail && (
@@ -235,7 +244,7 @@ export const PostDetail = () => {
                 className="w-full h-full object-cover"
               />
               <div className="absolute top-6 left-6">
-                <span className="px-4 py-2 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-lg">
+                <span className="px-4 py-2 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-sm shadow-lg">
                   {post.category}
                 </span>
               </div>
@@ -245,97 +254,41 @@ export const PostDetail = () => {
           {/* 3. POST HEADER */}
           <div className="p-8 md:p-14 min-w-0">
             <div className="flex flex-wrap items-center gap-4 mb-8">
-              <div className="flex items-center text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded-2xl uppercase tracking-widest">
+              <div className="flex items-center text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded-sm uppercase tracking-widest">
                 <Calendar className="h-3.5 w-3.5 mr-2 text-emerald-500" />
                 {formatDate(post.createdAt)}
               </div>
-              <div className="flex items-center text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded-2xl uppercase tracking-widest">
+              <div className="flex items-center text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded-sm uppercase tracking-widest">
                 <Clock className="h-3.5 w-3.5 mr-2 text-primary" />
                 5 min read
               </div>
             </div>
 
-            <h1 className="post-title break-words text-3xl md:text-5xl font-black text-gray-900 dark:text-white leading-[1.1] mb-10 tracking-tight">
+            <h1 className="post-title text-3xl md:text-5xl font-black text-gray-900 dark:text-white leading-[1.1] mb-10 tracking-tight">
               {post.title}
             </h1>
 
             {/* 5. POST CONTENT */}
             <div className="w-full max-w-full">
               <style>{`
-                .post-content {
-                  width: 100%;
-                  max-width: 100%;
-                  line-height: 1.8;
-                }
-                
-                .post-content * {
-                  max-width: 100%;
-                  word-break: normal !important;
-                  overflow-wrap: break-word !important;
-                  text-align: justify;
-                }
-
-                .post-content p {
-                  margin-bottom: 2rem;
-                  font-size: 1.125rem;
-                  font-weight: 500;
-                  color: #475569; /* Slate 600 */
-                }
-                .dark .post-content p {
-                  color: #e2e8f0; /* Slate 200 - Very visible */
-                }
-                
-                .post-content h2 {
-                  font-size: 2.25rem;
-                  font-weight: 900;
-                  color: #0f172a; /* Slate 900 */
-                  margin: 3.5rem 0 1.5rem;
-                  letter-spacing: -0.04em;
-                  line-height: 1.1;
-                }
-                .dark .post-content h2 {
-                  color: #f8fafc; /* Slate 50 - Very visible */
-                }
-
-                .post-content h3 {
-                  font-size: 1.75rem;
-                  font-weight: 800;
-                  color: #1e293b;
-                  margin: 2.5rem 0 1.25rem;
-                  letter-spacing: -0.02em;
-                }
-                .dark .post-content h3 {
-                  color: #f1f5f9;
-                }
-
-                .post-content a {
-                  color: #1e3b8b; /* Primary color */
-                  text-decoration: underline;
-                  text-underline-offset: 4px;
-                  font-weight: 700;
-                }
-
-                .post-content ul, .post-content ol {
-                  margin-bottom: 2rem;
-                  padding-left: 1.5rem;
-                  color: #475569;
-                }
-                .dark .post-content ul, .dark .post-content ol {
-                  color: #e2e8f0;
-                }
-                .post-content li {
-                  margin-bottom: 0.75rem;
-                }
-
-                .post-content img {
-                  border-radius: 1.5rem;
-                  margin: 3rem 0;
-                  box-shadow: 0 20px 40px -20px rgba(0,0,0,0.1);
-                }
+                .post-body, .post-body * { text-align: left !important; word-break: normal !important; overflow-wrap: break-word !important; hyphens: none !important; white-space: normal !important; }
+                .post-body { line-height: 1.7; font-size: 16px; color: #475569; }
+                .dark .post-body { color: #e2e8f0; }
+                .post-body p { margin: 0 0 12px; }
+                .post-body h1 { font-size: 22px; margin: 20px 0 8px; color: #0f172a; }
+                .dark .post-body h1 { color: #f8fafc; }
+                .post-body h2 { font-size: 20px; margin: 20px 0 8px; color: #0f172a; }
+                .dark .post-body h2 { color: #f8fafc; }
+                .post-body h3 { font-size: 18px; margin: 16px 0 8px; color: #1e293b; }
+                .dark .post-body h3 { color: #f1f5f9; }
+                .post-body ul, .post-body ol { padding-left: 20px; margin: 0 0 12px; }
+                .post-body li { margin-bottom: 6px; }
+                .post-body a { color: #1e3b8b; text-decoration: underline; font-weight: 700; }
+                .post-body img { max-width: 100%; height: auto; border-radius: 4px; margin: 20px 0; }
               `}</style>
               <div 
-                className="post-content"
-                dangerouslySetInnerHTML={{ __html: post.description }}
+                className="post-body"
+                dangerouslySetInnerHTML={{ __html: cleanHtml(post.description || '') }}
               />
             </div>
 
@@ -347,7 +300,7 @@ export const PostDetail = () => {
                     href={post.externalLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center px-10 py-5 bg-primary text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex-1 text-center"
+                    className="inline-flex items-center justify-center px-10 py-5 bg-primary text-white font-black text-sm uppercase tracking-[0.2em] rounded-sm shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex-1 text-center"
                   >
                     {post.ctaText || post.externalLinkText || 'Apply Now'}
                     <ArrowRight className="ml-3 h-5 w-5" />
@@ -359,7 +312,7 @@ export const PostDetail = () => {
                     href={`https://wa.me/${post.whatsappNumber.replace(/\D/g, '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center px-10 py-5 bg-green-500 text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-2xl shadow-green-500/20 hover:scale-[1.02] active:scale-95 transition-all flex-1 text-center"
+                    className="inline-flex items-center justify-center px-10 py-5 bg-green-500 text-white font-black text-sm uppercase tracking-[0.2em] rounded-sm shadow-2xl shadow-green-500/20 hover:scale-[1.02] active:scale-95 transition-all flex-1 text-center"
                   >
                     {post.whatsappButtonText || 'Contact on WhatsApp'}
                     <MessageCircle className="ml-3 h-5 w-5" />
