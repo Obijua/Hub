@@ -69,6 +69,55 @@ async function queryFirestoreBySlug(collectionId: string, slug: string, projectI
   return null;
 }
 
+async function queryCategoryBySlug(slug: string, projectId: string, dbId: string, apiKey: string) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents:runQuery?key=${apiKey}`;
+  const body = {
+    structuredQuery: {
+      from: [{ collectionId: 'categories' }],
+      where: {
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'slug' },
+                op: 'EQUAL',
+                value: { stringValue: slug }
+              }
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'isActive' },
+                op: 'EQUAL',
+                value: { booleanValue: true }
+              }
+            }
+          ]
+        }
+      },
+      limit: 1
+    }
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    throw new Error(`Firestore query failed: ${res.status} ${res.statusText}`);
+  }
+
+  const results = await res.json();
+  for (const row of results) {
+    if (row.document) {
+      return parseFirestoreDoc(row.document);
+    }
+  }
+  return null;
+}
+
 function escapeHtml(str: string): string {
   if (!str) return '';
   return String(str)
@@ -147,7 +196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       docData = await queryFirestoreBySlug('posts', slug, projectId, dbId, apiKey);
       path = `/post/${slug}`;
     } else if (type === 'category') {
-      docData = await queryFirestoreBySlug('categories', slug, projectId, dbId, apiKey);
+      docData = await queryCategoryBySlug(slug, projectId, dbId, apiKey);
       path = `/category/${slug}`;
     }
 

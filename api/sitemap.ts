@@ -67,8 +67,30 @@ async function fetchAllPosts(projectId: string, dbId: string, apiKey: string) {
 
 async function fetchCategories(projectId: string, dbId: string, apiKey: string) {
   try {
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/categories?pageSize=100&key=${apiKey}`;
-    const res = await fetch(url);
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents:runQuery?key=${apiKey}`;
+    const body = {
+      structuredQuery: {
+        from: [{ collectionId: 'categories' }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: 'isActive' },
+            op: 'EQUAL',
+            value: { booleanValue: true }
+          }
+        },
+        orderBy: [
+          {
+            field: { fieldPath: 'displayOrder' },
+            direction: 'ASCENDING'
+          }
+        ]
+      }
+    };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
     if (!res.ok) {
       const respText = await res.text();
       const detail = respText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
@@ -76,9 +98,14 @@ async function fetchCategories(projectId: string, dbId: string, apiKey: string) 
       console.error(msg);
       throw new Error(msg);
     }
-    const data = await res.json();
-    const docs = data.documents || [];
-    return docs.map(parseFirestoreDoc).filter((c: any) => c.isActive !== false && c.status !== 'inactive');
+    const results = await res.json();
+    const categories: any[] = [];
+    for (const row of results) {
+      if (row.document) {
+        categories.push(parseFirestoreDoc(row.document));
+      }
+    }
+    return categories;
   } catch (e: any) {
     if (e.message && e.message.startsWith('Error generating sitemap')) {
       throw e;
