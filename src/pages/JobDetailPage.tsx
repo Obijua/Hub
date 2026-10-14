@@ -6,7 +6,7 @@ import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import { toast } from 'sonner';
 import AdUnit from '../components/AdUnit';
-import { useSeo } from '../lib/seo';
+import { useSeo, setJsonLd } from '../lib/seo';
 
 export const JobDetailPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -28,6 +28,110 @@ export const JobDetailPage = () => {
     path: seoPath,
     noindex: noindex
   });
+
+  useEffect(() => {
+    if (!job) return;
+
+    const cat = (job.category || '').toLowerCase();
+    const isJob = cat === 'job' || cat === 'internship' || (
+      cat && 
+      !['scholarship', 'free-course', 'udemy-coupon', 'opportunity', 'blog', 'course', 'courses'].includes(cat) &&
+      !cat.includes('scholarship') &&
+      !cat.includes('course') &&
+      !cat.includes('opportunity')
+    );
+
+    let jsonLdData: any = null;
+
+    if (isJob) {
+      const p = job as any;
+      const jobPosting: any = {
+        "@context": "https://schema.org",
+        "@type": "JobPosting",
+        "directApply": false
+      };
+
+      if (job.title) jobPosting.title = job.title;
+      if (job.description) jobPosting.description = job.description;
+
+      const datePosted = job.createdAt?.toDate ? job.createdAt.toDate().toISOString() : (job.createdAt ? new Date(job.createdAt).toISOString() : null);
+      if (datePosted) jobPosting.datePosted = datePosted;
+
+      if (p.jobType) {
+        const jt = p.jobType.toUpperCase().replace(/[- ]/g, '_');
+        if (['FULL_TIME', 'PART_TIME', 'CONTRACTOR', 'INTERN', 'TEMPORARY'].includes(jt)) {
+          jobPosting.employmentType = jt;
+        }
+      }
+
+      if (p.company) {
+        jobPosting.hiringOrganization = {
+          "@type": "Organization",
+          "name": p.company
+        };
+      }
+
+      if (job.location) {
+        jobPosting.jobLocation = {
+          "@type": "Place",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": job.location,
+            "addressCountry": "NG"
+          }
+        };
+      }
+
+      if (job.salary && /\d/.test(job.salary) && !job.salary.toLowerCase().includes('competitive')) {
+        jobPosting.baseSalary = {
+          "@type": "MonetaryAmount",
+          "currency": "NGN",
+          "value": job.salary
+        };
+      }
+
+      const validThrough = job.deadline?.toDate ? job.deadline.toDate().toISOString() : (job.deadline ? new Date(job.deadline).toISOString() : null);
+      if (validThrough) {
+        jobPosting.validThrough = validThrough;
+      }
+
+      const isRemote = p.isRemote || (job.location && job.location.toLowerCase().includes('remote')) || job.tags?.some(t => t.toLowerCase() === 'remote');
+      if (isRemote) {
+        jobPosting.jobLocationType = "TELECOMMUTE";
+        jobPosting.applicantLocationRequirements = {
+          "@type": "Country",
+          "name": "Nigeria"
+        };
+      }
+
+      jsonLdData = jobPosting;
+    } else {
+      const article: any = {
+        "@context": "https://schema.org",
+        "@type": "Article"
+      };
+
+      if (job.title) article.headline = job.title;
+      if (job.description) article.description = job.description;
+      if (job.thumbnail) article.image = job.thumbnail;
+
+      const datePublished = job.createdAt?.toDate ? job.createdAt.toDate().toISOString() : (job.createdAt ? new Date(job.createdAt).toISOString() : null);
+      if (datePublished) article.datePublished = datePublished;
+
+      article.publisher = {
+        "@type": "Organization",
+        "name": "Hub & Jobs",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://www.hubandjobs.com/logo.png"
+        }
+      };
+
+      jsonLdData = article;
+    }
+
+    return setJsonLd(`post-jsonld-${job.id}`, jsonLdData);
+  }, [job]);
 
   useEffect(() => {
     const fetchJob = async () => {

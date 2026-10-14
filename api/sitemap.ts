@@ -46,7 +46,11 @@ async function fetchAllPosts(projectId: string, dbId: string, apiKey: string) {
     }
     const res = await fetch(url);
     if (!res.ok) {
-      throw new Error(`Firestore posts fetch failed: ${res.status} ${res.statusText}`);
+      const respText = await res.text();
+      const detail = respText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+      const msg = `Error generating sitemap | step: posts | status: ${res.status} | detail: ${detail.slice(0, 300)}`;
+      console.error(msg);
+      throw new Error(msg);
     }
     const data = await res.json();
     const docs = data.documents || [];
@@ -65,13 +69,24 @@ async function fetchCategories(projectId: string, dbId: string, apiKey: string) 
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/categories?pageSize=100&key=${apiKey}`;
     const res = await fetch(url);
-    if (!res.ok) return [];
+    if (!res.ok) {
+      const respText = await res.text();
+      const detail = respText.replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+      const msg = `Error generating sitemap | step: categories | status: ${res.status} | detail: ${detail.slice(0, 300)}`;
+      console.error(msg);
+      throw new Error(msg);
+    }
     const data = await res.json();
     const docs = data.documents || [];
     return docs.map(parseFirestoreDoc).filter((c: any) => c.isActive !== false && c.status !== 'inactive');
-  } catch (e) {
-    console.error("Error fetching categories for sitemap:", e);
-    return [];
+  } catch (e: any) {
+    if (e.message && e.message.startsWith('Error generating sitemap')) {
+      throw e;
+    }
+    const sanitizedMsg = String(e.message || e).replace(new RegExp(apiKey, 'g'), '[REDACTED]');
+    const msg = `Error generating sitemap | step: categories | status: 0 | detail: ${sanitizedMsg.slice(0, 300)}`;
+    console.error(msg);
+    throw new Error(msg);
   }
 }
 
@@ -166,7 +181,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
     return res.status(200).send(xml);
   } catch (error: any) {
-    console.error("Sitemap generation error:", error);
-    return res.status(500).send("Error generating sitemap");
+    const errText = error.message && error.message.startsWith('Error generating sitemap')
+      ? error.message
+      : `Error generating sitemap | step: xml | status: 0 | detail: ${String(error.message || error).replace(new RegExp(firebaseConfig.apiKey, 'g'), '[REDACTED]').slice(0, 300)}`;
+    console.error(errText);
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.status(500).send(errText);
   }
 }
