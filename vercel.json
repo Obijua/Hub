@@ -17,6 +17,10 @@
       "destination": "/api/page?type=category&slug=:slug"
     },
     {
+      "source": "/jobs/:jobId",
+      "destination": "/api/page?type=job&id=:jobId"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

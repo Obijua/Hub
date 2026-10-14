@@ -132,6 +132,17 @@ async function queryCategoryBySlug(slug: string, projectId: string, dbId: string
   return null;
 }
 
+async function fetchPostById(id: string, projectId: string, dbId: string, apiKey: string) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/posts/${id}?key=${apiKey}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw new Error(`Firestore get failed: ${res.status}`);
+  }
+  const doc = await res.json();
+  return parseFirestoreDoc(doc);
+}
+
 function escapeHtml(str: string): string {
   if (!str) return '';
   return String(str)
@@ -197,7 +208,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { projectId, apiKey, firestoreDatabaseId } = firebaseConfig;
     const dbId = firestoreDatabaseId || '(default)';
 
-    if (!type || !slug) {
+    if (!type) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
       return res.status(200).send(indexHtml);
@@ -207,14 +218,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let path = '';
 
     if (type === 'post') {
+      if (!slug) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).send(indexHtml);
+      }
       docData = await queryFirestoreBySlug('posts', slug, projectId, dbId, apiKey);
       path = `/post/${slug}`;
     } else if (type === 'category') {
+      if (!slug) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).send(indexHtml);
+      }
       docData = await queryCategoryBySlug(slug, projectId, dbId, apiKey);
       path = `/category/${slug}`;
     } else if (type === 'job') {
-      docData = await queryFirestoreBySlug('posts', slug, projectId, dbId, apiKey);
-      path = `/jobs/${slug}`;
+      const jobId = req.query.id as string;
+      if (!jobId) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).send(indexHtml);
+      }
+      docData = await fetchPostById(jobId, projectId, dbId, apiKey);
+      if (!docData) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).send(indexHtml);
+      }
+      if (docData.slug && String(docData.slug).trim() !== '') {
+        res.setHeader('Location', `https://www.hubandjobs.com/post/${docData.slug}`);
+        res.setHeader('Cache-Control', 'public, s-maxage=3600');
+        return res.status(301).send('');
+      }
+      path = `/jobs/${jobId}`;
     }
 
     if (!docData) {
