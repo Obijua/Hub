@@ -6,7 +6,7 @@ import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import { toast } from 'sonner';
 import AdUnit from '../components/AdUnit';
-import { useSeo, setJsonLd } from '../lib/seo';
+import { useSeo } from '../lib/seo';
 
 export const JobDetailPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -23,115 +23,11 @@ export const JobDetailPage = () => {
   const noindex = job ? !job.slug : false;
 
   useSeo({
-    title: job ? `${job.title} | Hub & Jobs` : 'Job Vacancy | Hub & Jobs',
-    description: job ? (job.description || 'Apply for this job opening on Hub & Jobs.') : 'View job details and apply on Hub & Jobs.',
+    title: job?.title ? `${job.title} | Hub & Jobs` : 'Job Vacancy | Hub & Jobs',
+    description: job?.description ? (job.description.replace(/<[^>]*>?/gm, '').slice(0, 160)) : 'View job details and apply on Hub & Jobs.',
     path: seoPath,
     noindex: noindex
   });
-
-  useEffect(() => {
-    if (!job) return;
-
-    const cat = (job.category || '').toLowerCase();
-    const isJob = cat === 'job' || cat === 'internship' || (
-      cat && 
-      !['scholarship', 'free-course', 'udemy-coupon', 'opportunity', 'blog', 'course', 'courses'].includes(cat) &&
-      !cat.includes('scholarship') &&
-      !cat.includes('course') &&
-      !cat.includes('opportunity')
-    );
-
-    let jsonLdData: any = null;
-
-    if (isJob) {
-      const p = job as any;
-      const jobPosting: any = {
-        "@context": "https://schema.org",
-        "@type": "JobPosting",
-        "directApply": false
-      };
-
-      if (job.title) jobPosting.title = job.title;
-      if (job.description) jobPosting.description = job.description;
-
-      const datePosted = job.createdAt?.toDate ? job.createdAt.toDate().toISOString() : (job.createdAt ? new Date(job.createdAt).toISOString() : null);
-      if (datePosted) jobPosting.datePosted = datePosted;
-
-      if (p.jobType) {
-        const jt = p.jobType.toUpperCase().replace(/[- ]/g, '_');
-        if (['FULL_TIME', 'PART_TIME', 'CONTRACTOR', 'INTERN', 'TEMPORARY'].includes(jt)) {
-          jobPosting.employmentType = jt;
-        }
-      }
-
-      if (p.company) {
-        jobPosting.hiringOrganization = {
-          "@type": "Organization",
-          "name": p.company
-        };
-      }
-
-      if (job.location) {
-        jobPosting.jobLocation = {
-          "@type": "Place",
-          "address": {
-            "@type": "PostalAddress",
-            "addressLocality": job.location,
-            "addressCountry": "NG"
-          }
-        };
-      }
-
-      if (job.salary && /\d/.test(job.salary) && !job.salary.toLowerCase().includes('competitive')) {
-        jobPosting.baseSalary = {
-          "@type": "MonetaryAmount",
-          "currency": "NGN",
-          "value": job.salary
-        };
-      }
-
-      const validThrough = job.deadline?.toDate ? job.deadline.toDate().toISOString() : (job.deadline ? new Date(job.deadline).toISOString() : null);
-      if (validThrough) {
-        jobPosting.validThrough = validThrough;
-      }
-
-      const isRemote = p.isRemote || (job.location && job.location.toLowerCase().includes('remote')) || job.tags?.some(t => t.toLowerCase() === 'remote');
-      if (isRemote) {
-        jobPosting.jobLocationType = "TELECOMMUTE";
-        jobPosting.applicantLocationRequirements = {
-          "@type": "Country",
-          "name": "Nigeria"
-        };
-      }
-
-      jsonLdData = jobPosting;
-    } else {
-      const article: any = {
-        "@context": "https://schema.org",
-        "@type": "Article"
-      };
-
-      if (job.title) article.headline = job.title;
-      if (job.description) article.description = job.description;
-      if (job.thumbnail) article.image = job.thumbnail;
-
-      const datePublished = job.createdAt?.toDate ? job.createdAt.toDate().toISOString() : (job.createdAt ? new Date(job.createdAt).toISOString() : null);
-      if (datePublished) article.datePublished = datePublished;
-
-      article.publisher = {
-        "@type": "Organization",
-        "name": "Hub & Jobs",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://www.hubandjobs.com/logo.png"
-        }
-      };
-
-      jsonLdData = article;
-    }
-
-    return setJsonLd(`post-jsonld-${job.id}`, jsonLdData);
-  }, [job]);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -246,7 +142,6 @@ export const JobDetailPage = () => {
   const renderDescriptionWithAds = (html: string) => {
     if (!html) return null;
 
-    // No adConfig yet — render without ads
     if (!adConfig) {
       return (
         <div
@@ -257,7 +152,6 @@ export const JobDetailPage = () => {
       );
     }
 
-    // Check correct Firestore field names from admin
     const adsEnabled = adConfig.masterSwitch && adConfig.articleAdsEnabled;
 
     if (!adsEnabled) {
@@ -270,11 +164,9 @@ export const JobDetailPage = () => {
       );
     }
 
-    // CORRECT field names matching Firestore/Admin exactly
     const frequency = Number(adConfig.articleAdFrequency) || 3;
     const maxAds = Number(adConfig.articleMaxAds) || 2;
 
-    // Split ONLY on block-level closing tags — NOT on </li>
     const chunks = html
       .split(/(?<=<\/p>|<\/h[1-6]>|<\/blockquote>|<\/ul>|<\/ol>)/)
       .filter(chunk => chunk.trim().length > 0);
@@ -343,7 +235,6 @@ export const JobDetailPage = () => {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#EEF2FF', overflowX: 'hidden', width: '100%', paddingBottom: '120px' }}>
 
-      {/* Global style for description HTML */}
       <style>{`
   * { box-sizing: border-box; }
   
@@ -354,10 +245,8 @@ export const JobDetailPage = () => {
     line-height: 1.7;
   }
   
-  /* Preserve ALL inline styles from rich text editor */
   .jd-content [style] { all: revert; }
   
-  /* Base text */
   .jd-content p { 
     margin-bottom: 12px; 
     overflow-wrap: anywhere;
@@ -366,19 +255,16 @@ export const JobDetailPage = () => {
   }
   .jd-content p:empty { display: none; }
   
-  /* Headings */
   .jd-content h1 { font-size: 22px !important; font-weight: 800 !important; color: #0f172a !important; margin-bottom: 12px !important; }
   .jd-content h2 { font-size: 18px !important; font-weight: 700 !important; color: #0f172a !important; margin-bottom: 10px !important; }
   .jd-content h3 { font-size: 16px !important; font-weight: 700 !important; color: #0f172a !important; margin-bottom: 8px !important; }
   .jd-content h4 { font-size: 15px !important; font-weight: 600 !important; color: #1e293b !important; margin-bottom: 8px !important; }
   
-  /* Bold and italic */
   .jd-content strong, .jd-content b { font-weight: 700 !important; color: inherit; }
   .jd-content em, .jd-content i { font-style: italic !important; }
   .jd-content u { text-decoration: underline !important; }
   .jd-content s { text-decoration: line-through !important; }
   
-  /* Lists with bullets */
   .jd-content ul { 
     list-style-type: disc !important; 
     padding-left: 20px !important; 
@@ -397,7 +283,6 @@ export const JobDetailPage = () => {
     overflow-wrap: anywhere;
   }
   
-  /* Text alignment */
   .jd-content [style*="text-align: center"], 
   .jd-content .ql-align-center { text-align: center !important; }
   .jd-content [style*="text-align: right"],
@@ -405,13 +290,11 @@ export const JobDetailPage = () => {
   .jd-content [style*="text-align: justify"],
   .jd-content .ql-align-justify { text-align: justify !important; }
   
-  /* Font colors from editor — allow inline color styles */
   .jd-content span[style*="color"] { color: inherit; }
   .jd-content *[style*="color:"] { }
   .jd-content *[style*="font-size:"] { }
   .jd-content *[style*="font-weight:"] { }
   
-  /* Blockquote */
   .jd-content blockquote { 
     border-left: 4px solid #1E3B8B !important; 
     padding-left: 16px !important; 
@@ -420,21 +303,18 @@ export const JobDetailPage = () => {
     font-style: italic !important;
   }
   
-  /* Links */
   .jd-content a { 
     color: #1E3B8B !important; 
     text-decoration: underline !important;
     word-break: break-all !important;
   }
   
-  /* Images */
   .jd-content img { 
     max-width: 100% !important; 
     height: auto !important; 
     border-radius: 4px !important;
   }
   
-  /* Tables */
   .jd-content table { 
     max-width: 100% !important; 
     overflow-x: auto !important; 
@@ -446,14 +326,12 @@ export const JobDetailPage = () => {
     padding: 8px !important;
   }
   
-  /* Horizontal rule */
   .jd-content hr { 
     border: none !important; 
     border-top: 1px solid #e2e8f0 !important; 
     margin: 16px 0 !important;
   }
 
-  /* Code */
   .jd-content code {
     background: #f1f5f9 !important;
     padding: 2px 6px !important;
