@@ -191,8 +191,10 @@ export const JobsPage = () => {
             const pAny = post as any;
             const companyName = pAny.company || pAny.employer || 'Featured Employer';
             const locationText = post.location || 'Nigeria';
-            const rawType = pAny.type || pAny.jobType || pAny.tags?.[0];
-            const jobType = (rawType && typeof rawType === 'string' && rawType.trim().length > 0) ? rawType : 'Full-time';
+            const rawJobType = pAny?.jobType || pAny?.type || '';
+            const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 'Internship', 'Contract', 'Freelance'];
+            const matchedType = VALID_TYPES.find(t => t.toLowerCase() === rawJobType.toLowerCase());
+            const jobType = matchedType || rawJobType || '';
             const salaryText = post.salary || 'Competitive';
 
             return (
@@ -223,18 +225,15 @@ export const JobsPage = () => {
                     <MapPin size={14} className="shrink-0" />
                     <span className="line-clamp-1">{locationText}</span>
                   </div>
-                  <span>•</span>
-                  <div className="flex items-center gap-1">
-                    <Briefcase size={14} className="shrink-0" />
-                    <span className="line-clamp-1">{
-                      (() => {
-                        const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 'Internship', 'Contract', 'Freelance'];
-                        const rType = pAny.type || pAny.jobType || pAny.tags?.[0];
-                        return VALID_TYPES.includes(rType) ? rType : 
-                          VALID_TYPES.includes(pAny.jobType) ? pAny.jobType : 'Full-time';
-                      })()
-                    }</span>
-                  </div>
+                  {jobType && (
+                    <>
+                      <span>•</span>
+                      <div className="flex items-center gap-1">
+                        <Briefcase size={14} className="shrink-0" />
+                        <span className="line-clamp-1">{jobType}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Row 3 */}

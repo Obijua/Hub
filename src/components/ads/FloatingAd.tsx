@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { MonetizationConfig } from '../../types';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { AdRenderer } from './AdRenderer';
 
 export const FloatingAd = () => {
   const [config, setConfig] = useState<MonetizationConfig | null>(null);
@@ -18,11 +19,12 @@ export const FloatingAd = () => {
           const data = docSnap.data() as MonetizationConfig;
           setConfig(data);
           
-          // Only show if enabled, on mobile, and not admin (or admin ads enabled)
           const isMobile = window.innerWidth < 768;
-          const isAdmin = !!auth.currentUser;
-          const shouldShow = data.zones['floating-sticky']?.enabled && 
+          const isAdmin = !!(localStorage.getItem('cb_admin_session') || auth.currentUser);
+          const adCode = data.zones?.['floating-sticky']?.adCode || '';
+          const shouldShow = data.zones?.['floating-sticky']?.enabled && 
                             isMobile && 
+                            (isAdmin || adCode.trim() !== '') &&
                             (!isAdmin || !data.hideAdsForAdmin);
           
           if (shouldShow) {
@@ -40,7 +42,6 @@ export const FloatingAd = () => {
   const handleDismiss = () => {
     setIsVisible(false);
     setIsDismissed(true);
-    // Reappear after 5 minutes
     setTimeout(() => {
       setIsDismissed(false);
       setIsVisible(true);
@@ -48,6 +49,8 @@ export const FloatingAd = () => {
   };
 
   if (!isVisible || isDismissed || !config) return null;
+  const adCode = config.zones?.['floating-sticky']?.adCode || '';
+  if (!adCode.trim()) return null;
 
   return (
     <AnimatePresence>
@@ -64,10 +67,9 @@ export const FloatingAd = () => {
           <X className="h-4 w-4" />
         </button>
         <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Advertisement</span>
-        <div 
-          className="w-full max-w-md min-h-[50px] flex justify-center overflow-hidden"
-          dangerouslySetInnerHTML={{ __html: config.zones['floating-sticky'].adCode }}
-        />
+        <div className="w-full max-w-md flex justify-center overflow-hidden">
+          <AdRenderer adCode={adCode} className="w-full" />
+        </div>
       </motion.div>
     </AnimatePresence>
   );

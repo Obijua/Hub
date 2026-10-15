@@ -24,8 +24,20 @@ const formatSalary = (salary?: string): string => {
   return salary.startsWith('₦') ? salary : `₦${salary}`;
 };
 
+const getTags = (postTags: any): string[] => {
+  if (!postTags) return [];
+  if (Array.isArray(postTags)) {
+    return postTags.map((t: any) => String(t).trim()).filter(Boolean);
+  }
+  if (typeof postTags === 'string') {
+    return postTags.split(',').map((t: string) => t.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 export const PostCard = ({ post, featured = false }: PostCardProps) => {
   const snippet = getSnippet(post.description);
+  const cardTags = getTags(post.tags);
   
   return (
     <Link to={`/post/${post.slug}`} className="block">
@@ -41,8 +53,15 @@ export const PostCard = ({ post, featured = false }: PostCardProps) => {
             <h3 className="text-xl md:text-2xl font-black text-gray-900 group-hover:text-primary transition-colors leading-tight line-clamp-2">
               {post.title}
             </h3>
-            <div className="flex-shrink-0 bg-primary/5 text-primary px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest">
-              {post.category}
+            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+              {cardTags.slice(0, 2).map((tag, idx) => (
+                <span key={idx} className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full text-[10px] font-bold">
+                  {tag}
+                </span>
+              ))}
+              <div className="bg-primary/5 text-primary px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest">
+                {post.category}
+              </div>
             </div>
           </div>
 

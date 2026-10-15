@@ -9,6 +9,17 @@ import AdUnit from '../components/AdUnit';
 import { useSeo, setJsonLd } from '../lib/seo';
 import { incrementViews } from '../lib/posts';
 
+const getTags = (postTags: any): string[] => {
+  if (!postTags) return [];
+  if (Array.isArray(postTags)) {
+    return postTags.map((t: any) => String(t).trim()).filter(Boolean);
+  }
+  if (typeof postTags === 'string') {
+    return postTags.split(',').map((t: string) => t.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 export const JobDetailPage = () => {
   const { jobId, slug } = useParams<{ jobId?: string; slug?: string }>();
   const navigate = useNavigate();
@@ -231,41 +242,28 @@ export const JobDetailPage = () => {
 
   const displayLocation = job?.location || 'Nigeria';
   
+  const rawJobType = pAny?.jobType || pAny?.type || '';
   const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 
     'Internship', 'Contract', 'Freelance'];
-  const jobType = VALID_TYPES.find(t => 
-    t.toLowerCase() === (pAny?.jobType || pAny?.type || '')
-    .toLowerCase()
-  ) || 'Full-time';
+  const matchedType = VALID_TYPES.find(t => 
+    t.toLowerCase() === rawJobType.toLowerCase()
+  );
+  const jobType = matchedType || rawJobType || '';
 
   const salaryText = job?.salary || 'Competitive';
   const requirements = pAny?.requirements || [];
 
-  const currentJobId = job?.id || '';
-
-  const hasWhatsApp = !!(pAny?.whatsappNumber && String(pAny.whatsappNumber).trim() !== '');
-  const hasExternalLink = !!(pAny?.externalLink && String(pAny.externalLink).trim() !== '');
   const buttonText = pAny?.externalLinkText || pAny?.ctaText || 'Apply Now';
-  const whatsappButtonText = pAny?.whatsappButtonText || 'WhatsApp';
 
-  const handleEasyApply = async () => {
-    if (!auth.currentUser || !currentJobId || hasApplied) return;
+  const isValidUrl = (url: string) => {
     try {
-      await addDoc(collection(db, 'applications'), {
-        jobId: currentJobId,
-        seekerId: auth.currentUser.uid,
-        jobTitle: job?.title || '',
-        company: companyName,
-        status: 'applied',
-        appliedAt: serverTimestamp(),
-      });
-      setHasApplied(true);
-      toast.success(`Successfully applied to ${job?.title || 'job'}!`);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to submit application');
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
     }
   };
+  const hasValidExternalLink = !!(pAny?.externalLink && typeof pAny.externalLink === 'string' && isValidUrl(pAny.externalLink.trim()));
 
   const handleShare = () => {
     const postUrl = job?.slug ? `https://www.hubandjobs.com/post/${job.slug}` : `https://www.hubandjobs.com/jobs/${job?.id || jobId || ''}`;
@@ -375,7 +373,7 @@ export const JobDetailPage = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#EEF2FF', overflowX: 'hidden', width: '100%', paddingBottom: '120px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#EEF2FF', overflowX: 'hidden', width: '100%', paddingBottom: '40px' }}>
 
       <style>{`
   * { box-sizing: border-box; }
@@ -501,23 +499,34 @@ export const JobDetailPage = () => {
           <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>{companyName}</p>
         )}
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginBottom: getTags(pAny?.tags || job?.tags).length > 0 ? '8px' : '16px' }}>
           <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <MapPin size={12} /> {displayLocation}
           </span>
-          <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Briefcase size={12} /> {jobType}
-          </span>
+          {jobType && (
+            <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Briefcase size={12} /> {jobType}
+            </span>
+          )}
         </div>
+
+        {getTags(pAny?.tags || job?.tags).length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', marginBottom: '16px' }}>
+            {getTags(pAny?.tags || job?.tags).map((tag, idx) => (
+              <span key={idx} style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '9999px', padding: '3px 10px', fontSize: '11px', fontWeight: 500 }}>
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
 
         <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
           <span style={{ fontSize: '16px', fontWeight: 600, color: '#E8B736' }}>{salaryText}</span>
         </div>
       </div>
 
-      {/* About This Role */}
+      {/* Post Content */}
       <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '0 16px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: 'calc(100% - 32px)', boxSizing: 'border-box', overflow: 'hidden' }}>
-        <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>About This Role</h3>
         <div style={{ width: '100%' }}>
           {renderDescriptionWithAds(
             pAny?.description || job?.description || ''
@@ -552,38 +561,20 @@ export const JobDetailPage = () => {
         <AdUnit slot="jobdetail-footer" label="Advertisement" />
       </div>
 
-      {/* Bottom Action Bar */}
-      <div style={{ position: 'fixed', bottom: '64px', left: 0, right: 0, backgroundColor: 'white', borderTop: '1px solid #f1f5f9', padding: '12px 16px', display: 'flex', gap: '8px', zIndex: 40, boxShadow: '0 -2px 10px rgba(0,0,0,0.06)' }}>
-        {hasWhatsApp && (
-          <button
-            onClick={() => window.open(`https://wa.me/${String(pAny.whatsappNumber).replace(/\D/g, '')}`, '_blank')}
-            style={{ flex: 1, backgroundColor: '#22c55e', color: 'white', border: 'none', borderRadius: '4px', padding: '14px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-          >
-            <MessageCircle size={16} />
-            {whatsappButtonText}
-          </button>
-        )}
-
-        {hasExternalLink && (
-          <button
-            onClick={() => window.open(String(pAny.externalLink), '_blank')}
-            style={{ flex: 1, backgroundColor: '#1E3B8B', color: 'white', border: 'none', borderRadius: '4px', padding: '14px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+      {/* Apply Now Button (In normal page flow if valid external link exists) */}
+      {hasValidExternalLink && (
+        <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: 'calc(100% - 32px)', boxSizing: 'border-box' }}>
+          <a
+            href={String(pAny.externalLink).trim()}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', backgroundColor: '#1E3B8B', color: 'white', border: 'none', borderRadius: '4px', padding: '14px', fontWeight: 600, fontSize: '14px', textDecoration: 'none', gap: '6px', boxSizing: 'border-box' }}
           >
             <ExternalLink size={16} />
             {buttonText}
-          </button>
-        )}
-
-        {!hasWhatsApp && !hasExternalLink && (
-          <button
-            onClick={handleEasyApply}
-            disabled={hasApplied}
-            style={{ flex: 1, backgroundColor: hasApplied ? '#e2e8f0' : '#1E3B8B', color: hasApplied ? '#94a3b8' : 'white', border: 'none', borderRadius: '4px', padding: '14px', fontWeight: 600, fontSize: '14px', cursor: hasApplied ? 'not-allowed' : 'pointer' }}
-          >
-            {hasApplied ? 'Applied ✓' : buttonText}
-          </button>
-        )}
-      </div>
+          </a>
+        </div>
+      )}
     </div>
   );
 };
