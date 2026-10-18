@@ -3,38 +3,22 @@ import { useParams, Link } from 'react-router-dom';
 import { Post, Category as CategoryType, CategoryConfig, MonetizationConfig } from '../types';
 import { useSeo } from '../lib/seo';
 import { 
-  Briefcase, 
-  GraduationCap, 
-  BookOpen, 
-  Ticket, 
-  Building2, 
-  Star,
   ArrowLeft,
   Search,
-  SlidersHorizontal,
-  ChevronRight,
-  TrendingUp,
-  Clock,
-  Music2,
-  Facebook,
-  Youtube,
-  MessageCircle,
-  Twitter,
-  Linkedin,
-  Instagram
+  Sparkles, 
+  X as CloseIcon, 
+  FileText, 
+  ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getAllPosts } from '../lib/posts';
-import { cn } from '../lib/utils';
-import { PostCard } from '../components/PostCard';
+import { JobCard } from '../components/JobCard';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, onSnapshot } from 'firebase/firestore';
 import { AdSlot } from '../components/ads/AdSlot';
 
-import { Sparkles, X as CloseIcon, FileText, ArrowRight } from 'lucide-react';
-
 const MobileDocPromo = React.forwardRef<HTMLDivElement, { prices: any }>(({ prices }, ref) => (
-  <div ref={ref} className="lg:hidden my-6 p-4 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl text-white shadow-lg">
+  <div ref={ref} className="lg:hidden my-3 p-4 bg-amber-600 text-white" style={{ borderRadius: '2px' }}>
     <div className="flex items-center space-x-2 mb-2">
       <Sparkles className="h-3 w-3 text-yellow-200" />
       <span className="text-[9px] font-black uppercase tracking-widest">Premium Tools</span>
@@ -42,16 +26,16 @@ const MobileDocPromo = React.forwardRef<HTMLDivElement, { prices: any }>(({ pric
     <h3 className="text-base font-black mb-1">Professional Documents</h3>
     <p className="text-amber-50 text-[10px] mb-3 opacity-90">Get hired faster with expert CVs and Plans.</p>
     <div className="grid grid-cols-2 gap-2 mb-3">
-      <div className="p-1.5 bg-white/10 rounded-lg text-center">
+      <div className="p-1.5 bg-white/10 text-center" style={{ borderRadius: '2px' }}>
         <div className="text-[9px] opacity-80">CV</div>
         <div className="font-black text-xs">₦{prices?.cvPrice || '1,500'}</div>
       </div>
-      <div className="p-1.5 bg-white/10 rounded-lg text-center">
+      <div className="p-1.5 bg-white/10 text-center" style={{ borderRadius: '2px' }}>
         <div className="text-[9px] opacity-80">Plan</div>
         <div className="font-black text-xs">₦{prices?.planPrice || '5,000'}</div>
       </div>
     </div>
-    <Link to="/documents" className="block w-full bg-white text-amber-600 text-center font-black py-2.5 rounded-xl text-xs">
+    <Link to="/documents" className="block w-full bg-white text-amber-600 text-center font-black py-2.5 text-xs" style={{ borderRadius: '2px' }}>
       Build My Document ✨
     </Link>
   </div>
@@ -79,23 +63,25 @@ const MobilePopup = ({ prices }: { prices: any }) => {
   if (!isVisible || isDismissed) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[100] p-2 lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-[100] p-2 max-w-[430px] mx-auto">
       <motion.div 
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
-        className="bg-white rounded-t-xl shadow-[0_-10px_40px_-12px_rgba(0,0,0,0.3)] p-4 relative"
+        className="bg-white shadow-[0_-10px_40px_-12px_rgba(0,0,0,0.3)] p-4 relative"
+        style={{ borderRadius: '2px 2px 0 0' }}
       >
-        <div className="w-8 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+        <div className="w-8 h-1 bg-gray-200 mx-auto mb-4" style={{ borderRadius: '2px' }}></div>
         
         <button 
           onClick={() => setIsDismissed(true)}
-          className="absolute top-3 right-3 p-1.5 bg-gray-50 rounded-full text-gray-400"
+          className="absolute top-3 right-3 p-1.5 bg-gray-50 text-gray-400"
+          style={{ borderRadius: '2px' }}
         >
           <CloseIcon className="h-4 w-4" />
         </button>
 
         <div className="flex items-center space-x-3 mb-4">
-          <div className="p-3 bg-amber-50 rounded-xl">
+          <div className="p-3 bg-amber-50" style={{ borderRadius: '2px' }}>
             <FileText className="h-6 w-6 text-amber-600" />
           </div>
           <div>
@@ -105,23 +91,24 @@ const MobilePopup = ({ prices }: { prices: any }) => {
         </div>
 
         <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="p-2 bg-gray-50 rounded-xl text-center">
+          <div className="p-2 bg-gray-50 text-center" style={{ borderRadius: '2px' }}>
             <div className="text-[9px] text-gray-400 font-bold uppercase">CV</div>
-            <div className="font-black text-primary text-sm">₦{prices?.cvPrice || '1,500'}</div>
+            <div className="font-black text-[#1E3B8B] text-sm">₦{prices?.cvPrice || '1,500'}</div>
           </div>
-          <div className="p-2 bg-gray-50 rounded-xl text-center">
+          <div className="p-2 bg-gray-50 text-center" style={{ borderRadius: '2px' }}>
             <div className="text-[9px] text-gray-400 font-bold uppercase">Plan</div>
-            <div className="font-black text-primary text-sm">₦{prices?.planPrice || '5,000'}</div>
+            <div className="font-black text-[#1E3B8B] text-sm">₦{prices?.planPrice || '5,000'}</div>
           </div>
-          <div className="p-2 bg-gray-50 rounded-xl text-center">
+          <div className="p-2 bg-gray-50 text-center" style={{ borderRadius: '2px' }}>
             <div className="text-[9px] text-gray-400 font-bold uppercase">Bundle</div>
-            <div className="font-black text-primary text-sm">₦{prices?.bundlePrice || '7,500'}</div>
+            <div className="font-black text-[#1E3B8B] text-sm">₦{prices?.bundlePrice || '7,500'}</div>
           </div>
         </div>
 
         <Link 
           to="/documents"
-          className="w-full bg-primary text-white font-black py-3 rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-primary/20 text-sm"
+          className="w-full bg-[#1E3B8B] text-white font-black py-3 flex items-center justify-center space-x-2 shadow-lg shadow-[#1E3B8B]/20 text-sm"
+          style={{ borderRadius: '2px' }}
         >
           <span>Build My Document ✨</span>
           <ArrowRight className="h-4 w-4" />
@@ -148,24 +135,6 @@ export const Category = () => {
   const [monetization, setMonetization] = useState<MonetizationConfig | null>(null);
   const [docPrices, setDocPrices] = useState<any>(null);
 
-  const categoryIcons: any = {
-    Briefcase: Briefcase,
-    GraduationCap: GraduationCap,
-    BookOpen: BookOpen,
-    Ticket: Ticket,
-    Building2: Building2,
-    Star: Star,
-    TrendingUp: TrendingUp,
-    Clock: Clock,
-    Music2: Music2,
-    Facebook: Facebook,
-    Youtube: Youtube,
-    MessageCircle: MessageCircle,
-    Twitter: Twitter,
-    Linkedin: Linkedin,
-    Instagram: Instagram
-  };
-
   useEffect(() => {
     const unsubDocs = onSnapshot(doc(db, 'settings', 'documents'), (doc) => {
       if (doc.exists()) setDocPrices(doc.data());
@@ -185,7 +154,6 @@ export const Category = () => {
       if (!slug) return;
       setLoading(true);
       try {
-        // Fetch category meta
         const qMeta = query(collection(db, 'categories'), where('slug', '==', slug));
         const snapMeta = await getDocs(qMeta);
         if (!snapMeta.empty) {
@@ -194,7 +162,6 @@ export const Category = () => {
           setMeta(null);
         }
 
-        // Fetch posts
         const fetchedPosts = await getAllPosts({ 
           category: slug as CategoryType,
           limitCount: 100
@@ -237,165 +204,154 @@ export const Category = () => {
 
   if (!meta) {
     return (
-      <div className="text-center py-20">
-        <h2 className="text-2xl font-bold">Category not found</h2>
-        <Link to="/blog" className="text-primary mt-4 inline-block">Back to all opportunities</Link>
+      <div style={{ maxWidth: '430px', margin: '0 auto', padding: '48px 16px', backgroundColor: '#EEF2FF', minHeight: '100vh', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0F172A', marginBottom: '12px' }}>Category not found</h2>
+        <Link to="/blog" style={{ color: '#1E3B8B', fontWeight: 600, fontSize: '14px', textDecoration: 'underline' }}>Back to all opportunities</Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Category Hero */}
-      <div 
-        className="text-white pt-16 pb-24 relative overflow-hidden transition-colors"
-        style={{ backgroundColor: meta.color }}
-      >
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <Link to="/blog" className="inline-flex items-center text-sm font-bold mb-8 hover:underline opacity-80 hover:opacity-100 transition-all">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to all
-          </Link>
-          
-          <div className="flex flex-col md:flex-row md:items-center gap-8">
-            <div className="p-6 bg-white/20 backdrop-blur-md rounded-3xl border border-white/30 shadow-2xl">
-              {(() => {
-                const IconComponent = (categoryIcons[meta.icon] || Briefcase) as any;
-                return <IconComponent className="h-12 w-12 text-white" />;
-              })()}
-            </div>
-            <div className="max-w-2xl">
-              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">{meta.name}</h1>
-              <p className="text-white/90 text-lg leading-relaxed">
-                {meta.description}
-              </p>
-              <div className="mt-6 inline-flex items-center px-4 py-2 bg-white/20 rounded-xl text-sm font-bold backdrop-blur-sm border border-white/10">
-                {posts.length} Opportunities Found
-              </div>
-            </div>
-          </div>
+    <div style={{ maxWidth: '430px', margin: '0 auto', backgroundColor: '#EEF2FF', minHeight: '100vh', paddingBottom: '96px' }}>
+      {/* Header Band */}
+      <div style={{ backgroundColor: '#1E3B8B', padding: '16px' }}>
+        <Link to="/blog" style={{ color: 'white', fontSize: '14px', display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '12px', textDecoration: 'none', opacity: 0.9 }}>
+          <ArrowLeft size={16} /> All opportunities
+        </Link>
+        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', marginBottom: '6px', lineHeight: '1.2' }}>
+          {meta.name}
+        </h1>
+        {meta.description && (
+          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.85)', marginBottom: '12px', lineHeight: '1.4' }}>
+            {meta.description}
+          </p>
+        )}
+        <div style={{ display: 'inline-block', backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', fontSize: '12px', padding: '4px 8px', borderRadius: '2px', fontWeight: 500 }}>
+          {filteredAndSortedPosts.length} opportunities
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10">
-        <div className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            {/* Search */}
-            <div className="relative w-full lg:w-96">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder={`Search in ${meta.name}...`}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all"
-              />
-            </div>
+      {/* Search & Sort Controls */}
+      <div style={{ padding: '16px' }}>
+        <div style={{ position: 'relative', marginBottom: '12px' }}>
+          <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', width: '18px', height: '18px', color: '#94A3B8' }} />
+          <input
+            type="text"
+            placeholder={`Search ${meta.name}`}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              height: '44px',
+              backgroundColor: 'white',
+              border: '1px solid #E2E8F0',
+              borderRadius: '2px',
+              paddingLeft: '44px',
+              paddingRight: '16px',
+              fontSize: '16px',
+              color: '#0F172A',
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
 
-            {/* Sort */}
-            <div className="flex items-center justify-between lg:justify-end gap-6 border-t lg:border-t-0 pt-4 lg:pt-0">
-              <div className="flex items-center text-sm text-gray-500">
-                <SlidersHorizontal className="h-4 w-4 mr-2" />
-                <span className="font-medium mr-2">Sort by:</span>
-                <select 
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-transparent font-bold text-gray-900 outline-none cursor-pointer hover:text-primary transition-colors"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="deadline">Closest Deadline</option>
-                </select>
-              </div>
-            </div>
-          </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '12px', color: '#64748B', marginBottom: '4px', fontWeight: 500 }}>Sort by</label>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            style={{
+              width: '100%',
+              height: '44px',
+              backgroundColor: 'white',
+              border: '1px solid #E2E8F0',
+              borderRadius: '2px',
+              padding: '0 12px',
+              fontSize: '16px',
+              color: '#0F172A',
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="deadline">Closest Deadline</option>
+          </select>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
+      {/* Main Content List */}
+      <div style={{ padding: '0 16px' }}>
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="animate-pulse bg-white rounded-2xl aspect-[16/10] w-full shadow-sm border border-gray-100"></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="animate-pulse bg-white" style={{ height: '140px', border: '1px solid #E2E8F0', borderRadius: '2px' }}></div>
             ))}
           </div>
         ) : filteredAndSortedPosts.length > 0 ? (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              <AnimatePresence mode="popLayout">
-                {filteredAndSortedPosts.slice(0, visibleCount).flatMap((post, index) => {
-                  const items = [
-                    <PostCard key={post.id} post={post} />
-                  ];
-                  
-                  // Mobile Doc Promo after every 3rd post
-                  if ((index + 1) % 3 === 0) {
-                    items.push(<MobileDocPromo key={`promo-${post.id}`} prices={docPrices} />);
-                  }
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <AnimatePresence mode="popLayout">
+              {filteredAndSortedPosts.slice(0, visibleCount).flatMap((post, index) => {
+                const items = [
+                  <JobCard key={post.id} post={post} showExcerpt={true} />
+                ];
+                
+                if ((index + 1) % 3 === 0) {
+                  items.push(<MobileDocPromo key={`promo-${post.id}`} prices={docPrices} />);
+                }
 
-                  if (monetization?.blogAdsEnabled && 
-                      (index + 1) % (monetization.homepageAdFrequency || 5) === 0 &&
-                      (index + 1) / (monetization.homepageAdFrequency || 5) <= (monetization.homepageMaxAds || 3)) {
-                    items.push(
-                      <motion.div 
-                        key={`ad-${post.id}`} 
-                        layout
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="col-span-full"
-                      >
-                        <AdSlot zone="between-posts" />
-                      </motion.div>
-                    );
-                  }
-                  
-                  return items;
-                })}
-              </AnimatePresence>
-            </div>
+                if (monetization?.blogAdsEnabled && 
+                    (index + 1) % (monetization.homepageAdFrequency || 5) === 0 &&
+                    (index + 1) / (monetization.homepageAdFrequency || 5) <= (monetization.homepageMaxAds || 3)) {
+                  items.push(
+                    <motion.div 
+                      key={`ad-${post.id}`} 
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <AdSlot zone="between-posts" />
+                    </motion.div>
+                  );
+                }
+                
+                return items;
+              })}
+            </AnimatePresence>
 
-            {/* Pagination */}
             {visibleCount < filteredAndSortedPosts.length && (
-              <div className="mt-16 text-center">
+              <div style={{ textAlign: 'center', marginTop: '24px' }}>
                 <button 
                   onClick={() => setVisibleCount(prev => prev + 12)}
-                  className="px-10 py-4 bg-white text-primary font-bold rounded-2xl border-2 border-primary hover:bg-primary hover:text-white transition-all shadow-lg hover:shadow-primary/20"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    backgroundColor: 'white',
+                    color: '#1E3B8B',
+                    fontWeight: 'bold',
+                    border: '1px solid #1E3B8B',
+                    borderRadius: '2px',
+                    cursor: 'pointer'
+                  }}
                 >
                   Load More {meta.name}
                 </button>
               </div>
             )}
-          </>
+          </div>
         ) : (
-          <div className="text-center py-32 bg-white rounded-3xl border border-dashed border-gray-300">
-            <div className="inline-flex p-6 bg-gray-50 rounded-full mb-6 text-gray-300">
-              {(() => {
-                const IconComponent = (categoryIcons[meta.icon] || Briefcase) as any;
-                return <IconComponent className="h-16 w-16" />;
-              })()}
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900">No {meta.name.toLowerCase()} found</h3>
-            <p className="text-gray-600 mt-2 max-w-sm mx-auto">
-              We couldn't find any opportunities in this category matching your search.
-            </p>
-            <button 
-              onClick={() => setSearchTerm('')}
-              className="mt-8 px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-blue-900 transition-all"
-            >
-              Clear Search
-            </button>
+          <div style={{ textAlign: 'center', padding: '48px 16px', backgroundColor: 'white', border: '1px solid #E2E8F0', borderRadius: '2px' }}>
+            <p style={{ fontSize: '15px', color: '#334155', fontWeight: 600, marginBottom: '12px' }}>No opportunities in this category yet.</p>
+            <Link to="/blog" style={{ fontSize: '14px', color: '#1E3B8B', fontWeight: 600, textDecoration: 'underline' }}>Back to all opportunities</Link>
           </div>
         )}
       </div>
 
-      {/* Mobile Bottom Sheet Popup */}
       <MobilePopup prices={docPrices} />
     </div>
   );
 };
+
+export default Category;
