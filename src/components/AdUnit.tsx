@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { db, auth } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { MonetizationConfig } from '../types';
 import { AdRenderer } from './ads/AdRenderer';
+import { useAuth } from './AuthProvider';
 
 interface AdUnitProps {
   slot: string;
@@ -19,6 +20,7 @@ const AdUnit = ({
 }: AdUnitProps) => {
   const [adConfig, setAdConfig] = useState<MonetizationConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const { profile } = useAuth();
 
   useEffect(() => {
     const fetchAdConfig = async () => {
@@ -39,7 +41,9 @@ const AdUnit = ({
   if (loading) return null;
   if (!adConfig || !adConfig.masterSwitch) return null;
 
-  const isAdmin = !!(localStorage.getItem('cb_admin_session') || auth.currentUser);
+  if (slot === 'pre_footer') {
+    return null;
+  }
 
   // Determine ad code based on slot
   let adCode = '';
@@ -48,15 +52,14 @@ const AdUnit = ({
   } else if (slot.includes('sidebar')) {
     adCode = adConfig.sidebarAdCode || adConfig.zones?.[slot]?.adCode || '';
   } else if (slot.includes('homepage') || slot.includes('home')) {
-    adCode = adConfig.homepageAdCode || adConfig.zones?.[slot]?.adCode || '';
+    adCode = adConfig.homepageAdCode || adConfig.zones?.[slot]?.adCode || adConfig.articleAdCode || '';
   } else {
     adCode = adConfig.zones?.[slot]?.adCode || adConfig.articleAdCode || '';
   }
 
   const hasCode = adCode && typeof adCode === 'string' && adCode.trim() !== '';
 
-  // For normal visitors, if no code exists, render nothing
-  if (!hasCode && !isAdmin) {
+  if (!hasCode) {
     return null;
   }
 
@@ -65,45 +68,7 @@ const AdUnit = ({
       <p className="text-[10px] text-gray-400 text-center mb-1 uppercase tracking-widest font-bold">
         {label}
       </p>
-      {hasCode ? (
-        <AdRenderer adCode={adCode} className="w-full" />
-      ) : isAdmin ? (
-        <div
-          style={{
-            border: '2px dashed #cbd5e1',
-            borderRadius: '4px',
-            padding: '20px',
-            textAlign: 'center',
-            backgroundColor: '#f8fafc',
-            minHeight: '100px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            width: '100%'
-          }}
-        >
-          <p style={{
-            fontSize: '10px',
-            color: '#94a3b8',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            fontWeight: 700,
-            margin: 0
-          }}>
-            {label} ({slot})
-          </p>
-          <p style={{
-            fontSize: '11px',
-            color: '#cbd5e1',
-            fontStyle: 'italic',
-            margin: 0
-          }}>
-            Ad space — configure in Admin → Monetization
-          </p>
-        </div>
-      ) : null}
+      <AdRenderer adCode={adCode} className="w-full" />
     </div>
   );
 };

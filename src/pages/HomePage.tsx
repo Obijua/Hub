@@ -275,13 +275,13 @@ export const HomePage = () => {
           {currentPosts.map((post, index) => {
             const isSaved = savedPostIds.includes(post.id);
             const pAny = post as any;
-            const companyName = pAny.company || pAny.employer || 'Featured Employer';
-            const locationText = post.location || 'Nigeria';
+            const companyName = pAny.company || pAny.employer || pAny.organizationName || pAny.recruiterCompany || '';
+            const locationText = post.location || '';
             const rawJobType = pAny?.jobType || pAny?.type || '';
             const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 'Internship', 'Contract', 'Freelance'];
             const matchedType = VALID_TYPES.find(t => t.toLowerCase() === rawJobType.toLowerCase());
             const jobType = matchedType || rawJobType || '';
-            const salaryText = post.salary || 'Competitive';
+            const salaryText = post.salary || '';
 
             return (
               <div key={post.id || index}>
@@ -295,7 +295,9 @@ export const HomePage = () => {
                       <h3 className="font-semibold text-base text-slate-900 hover:text-[#1E3B8B] line-clamp-1">
                         {post.title}
                       </h3>
-                      <p className="text-sm text-slate-500 line-clamp-1">{companyName}</p>
+                      {companyName && (
+                        <p className="text-sm text-slate-500 line-clamp-1">{companyName}</p>
+                      )}
                     </div>
                     <button 
                       onClick={(e) => toggleSave(e, post.id)}
@@ -306,27 +308,41 @@ export const HomePage = () => {
                   </div>
 
                   {/* Row 2 */}
-                  <div className="flex items-center gap-3 text-sm text-slate-500 mb-3">
-                    <div className="flex items-center gap-1">
-                      <MapPin size={14} className="shrink-0" />
-                      <span className="line-clamp-1">{locationText}</span>
-                    </div>
-                    {jobType && (
-                      <>
-                        <span>•</span>
+                  {(locationText || jobType) && (
+                    <div className="flex items-center gap-3 text-sm text-slate-500 mb-3">
+                      {locationText && (
+                        <div className="flex items-center gap-1">
+                          <MapPin size={14} className="shrink-0" />
+                          <span className="line-clamp-1">{locationText}</span>
+                        </div>
+                      )}
+                      {locationText && jobType && (
+                        <>
+                          <span>•</span>
+                          <div className="flex items-center gap-1">
+                            <Briefcase size={14} className="shrink-0" />
+                            <span className="line-clamp-1">{jobType}</span>
+                          </div>
+                        </>
+                      )}
+                      {!locationText && jobType && (
                         <div className="flex items-center gap-1">
                           <Briefcase size={14} className="shrink-0" />
                           <span className="line-clamp-1">{jobType}</span>
                         </div>
-                      </>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Row 3 */}
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                    <span className="bg-slate-100 text-slate-700 text-xs font-medium px-2 py-1 rounded-sm">
-                      {salaryText}
-                    </span>
+                    {salaryText ? (
+                      <span className="bg-slate-100 text-slate-700 text-xs font-medium px-2 py-1 rounded-sm">
+                        {salaryText}
+                      </span>
+                    ) : (
+                      <div />
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

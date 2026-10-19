@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      text-align: center;
+      width: 100%;
+    }
+    #hj-ad {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+    }
+    #hj-ad img,
+    #hj-ad iframe,
+    #hj-ad ins,
+    #hj-ad div {
+      margin-left: auto;
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="hj-ad"></div>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      window.parent.postMessage({ type: 'hj-ad-ready' }, '*');
+    });
+
+    window.addEventListener('message', (event) => {
+      if (event.source !== window.parent) return;
+      const data = event.data;
+      if (data && data.type === 'hj-ad') {
+        const html = data.html || '';
+        const container = document.getElementById('hj-ad');
+        container.innerHTML = html;
+
+        // Re-create scripts so they execute
+        const scripts = container.querySelectorAll('script');
+        scripts.forEach(oldScript => {
+          const newScript = document.createElement('script');
+          Array.from(oldScript.attributes).forEach(attr => {
+            newScript.setAttribute(attr.name, attr.value);
+          });
+          newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+          oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+      }
+    });
+
+    const container = document.getElementById('hj-ad');
+    const observer = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        const height = entry.contentRect.height;
+        window.parent.postMessage({ type: 'hj-ad-height', height }, '*');
+      }
+    });
+    observer.observe(container);
+  </script>
+</body>
+</html>

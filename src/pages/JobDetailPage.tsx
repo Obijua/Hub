@@ -6,7 +6,7 @@ import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import { toast } from 'sonner';
 import AdUnit from '../components/AdUnit';
-import { useSeo, setJsonLd } from '../lib/seo';
+import { useSeo, setJsonLd, buildPageTitle, stripHtmlToPlainText } from '../lib/seo';
 import { incrementViews } from '../lib/posts';
 
 const getTags = (postTags: any): string[] => {
@@ -45,28 +45,12 @@ export const JobDetailPage = () => {
   const locationText = job?.location || '';
 
   const pageTitle = useMemo(() => {
-    if (!job?.title) return 'Job Vacancy | Hub & Jobs';
-    let T = job.title;
-    if (T && T === T.toUpperCase() && /[A-Z]/.test(T)) {
-      T = T.toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
-    }
-    const hasComp = companyName && String(companyName).trim() !== '' && companyName !== 'Featured Employer';
-    const hasLoc = locationText && String(locationText).trim() !== '';
-
-    if (hasComp && hasLoc) {
-      return `${T} at ${companyName} – ${locationText} | Hub & Jobs`;
-    } else if (hasLoc) {
-      return `${T} in ${locationText} | Hub & Jobs`;
-    } else if (hasComp) {
-      return `${T} at ${companyName} | Hub & Jobs`;
-    } else {
-      return `${T} | Hub & Jobs`;
-    }
+    return buildPageTitle(job?.title || '', companyName, locationText);
   }, [job, companyName, locationText]);
 
   useSeo({
     title: pageTitle,
-    description: job?.description ? (job.description.replace(/<[^>]*>?/gm, '').slice(0, 160)) : 'View job details and apply on Hub & Jobs.',
+    description: job?.description ? stripHtmlToPlainText(job.description, 155) : 'View job details and apply on Hub & Jobs.',
     path: seoPath,
     noindex: noindex
   });

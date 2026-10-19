@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Post } from '../types';
 import { MapPin, Briefcase } from 'lucide-react';
+import { stripHtmlToPlainText } from '../lib/seo';
 
 interface JobCardProps {
   post: Post;
@@ -9,22 +10,7 @@ interface JobCardProps {
 }
 
 const getExcerpt = (html: string): string => {
-  if (!html) return '';
-  let text = html
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<\/p>/gi, ' ')
-    .replace(/<\/div>/gi, ' ')
-    .replace(/<\/li>/gi, ' ')
-    .replace(/<\/h[1-6]>/gi, ' ');
-  text = text.replace(/<[^>]*>?/gm, '');
-  text = text
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"');
-  text = text.replace(/\s+/g, ' ').trim();
-  return text;
+  return stripHtmlToPlainText(html);
 };
 
 const getTags = (post: any): string[] => {

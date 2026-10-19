@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface AdRendererProps {
   adCode: string;
@@ -8,52 +8,54 @@ interface AdRendererProps {
 export const AdRenderer: React.FC<AdRendererProps> = ({ adCode, className = '' }) => {
   if (!adCode || !adCode.trim()) return null;
 
-  const heightMatch = adCode.match(/['"]height['"]\s*:\s*(\d+)/i) || adCode.match(/height\s*=\s*['"]?(\d+)/i);
-  const widthMatch = adCode.match(/['"]width['"]\s*:\s*(\d+)/i) || adCode.match(/width\s*=\s*['"]?(\d+)/i);
-  const height = heightMatch ? parseInt(heightMatch[1]) : 250;
-  const width = widthMatch ? parseInt(widthMatch[1]) : 300;
+  const [height, setHeight] = useState<number>(100);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const srcDocContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: transparent;
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-          }
-          * { box-sizing: border-box; }
-        </style>
-      </head>
-      <body>
-        ${adCode}
-      </body>
-    </html>
-  `;
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (!iframeRef.current || event.source !== iframeRef.current.contentWindow) return;
+
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+
+      if (data.type === 'hj-ad-ready') {
+        iframeRef.current.contentWindow?.postMessage(
+          { type: 'hj-ad', html: adCode },
+          window.location.origin
+        );
+      } else if (data.type === 'hj-ad-height') {
+        const newHeight = Number(data.height);
+        if (!isNaN(newHeight) && newHeight > 0) {
+          const clamped = Math.min(Math.max(newHeight, 30), 600);
+          setHeight(clamped);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [adCode]);
 
   return (
     <div className={`flex justify-center w-full overflow-hidden ${className}`}>
       <iframe
-        srcDoc={srcDocContent}
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation-by-user-activation"
+        ref={iframeRef}
+        src="/ad-frame.html"
+        title="Advertisement"
+        loading="lazy"
+        scrolling="no"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
         style={{
-          width: width > 728 ? '100%' : `${width}px`,
+          width: '100%',
           maxWidth: '100%',
           height: `${height}px`,
           border: 'none',
           overflow: 'hidden',
           background: 'transparent'
         }}
-        title="Advertisement"
-        scrolling="no"
       />
     </div>
   );

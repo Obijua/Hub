@@ -35,15 +35,97 @@ export function setJsonLd(id: string, data: object | null) {
   };
 }
 
-function stripHtml(html: string): string {
+export function stripHtmlToPlainText(html: string, maxLength?: number): string {
   if (!html) return '';
-  return String(html)
+  let text = String(html)
     .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6]|ul|ol)>/gi, ' ')
-    .replace(/<[^>]*>?/gm, '')
+    .replace(/<[^>]*>?/gm, '');
+
+  text = text
     .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex) => {
+      try { return String.fromCodePoint(parseInt(hex, 16)); } catch { return ''; }
+    })
+    .replace(/&#([0-9]+);/gi, (_, dec) => {
+      try { return String.fromCodePoint(parseInt(dec, 10)); } catch { return ''; }
+    })
+    .replace(/&amp;/gi, '&');
+
+  // Remove invisible characters: U+200B, U+200C, U+200D, U+2060, U+FEFF, U+00AD
+  // Turn U+00A0 into normal space
+  text = text
+    .replace(/[\u200B\u200C\u200D\u2060\uFEFF\u00AD]/g, '')
+    .replace(/\u00A0/g, ' ');
+
+  text = text.replace(/\s+/g, ' ').trim();
+
+  if (maxLength && text.length > maxLength) {
+    const limit = maxLength - 1;
+    let cut = text.slice(0, limit);
+    const lastSpace = cut.lastIndexOf(' ');
+    if (lastSpace > 0) {
+      cut = cut.slice(0, lastSpace);
+    }
+    text = cut + '…';
+  }
+
+  return text;
+}
+
+export function buildPageTitle(title: string, company: string, location: string): string {
+  let T = title || 'Opportunity';
+  if (T && T === T.toUpperCase() && /[A-Z]/.test(T)) {
+    T = T.toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
+  }
+
+  let L = location ? String(location).trim() : '';
+  if (L.toLowerCase() === 'nationwide') {
+    L = 'Nigeria';
+  }
+
+  const hasComp = company && String(company).trim() !== '' && company !== 'Featured Employer';
+  const hasLoc = L !== '';
+
+  let fullTitle = '';
+  if (hasComp && hasLoc) {
+    fullTitle = `${T} at ${company} – ${L} | Hub & Jobs`;
+  } else if (hasLoc) {
+    if (L.toLowerCase() === 'remote') {
+      fullTitle = `${T} – Remote | Hub & Jobs`;
+    } else {
+      fullTitle = `${T} in ${L} | Hub & Jobs`;
+    }
+  } else if (hasComp) {
+    fullTitle = `${T} at ${company} | Hub & Jobs`;
+  } else {
+    fullTitle = `${T} | Hub & Jobs`;
+  }
+
+  if (fullTitle.length > 65) {
+    fullTitle = `${T} | Hub & Jobs`;
+  }
+
+  if (fullTitle.length > 65) {
+    const suffix = ' | Hub & Jobs';
+    const availableForT = 65 - suffix.length - 1;
+    if (availableForT > 0 && T.length > availableForT) {
+      let subT = T.slice(0, availableForT);
+      const lastSpace = subT.lastIndexOf(' ');
+      if (lastSpace > 0) {
+        subT = subT.slice(0, lastSpace);
+      }
+      T = subT + '…';
+    } else {
+      T = T.slice(0, Math.max(0, 65 - suffix.length));
+    }
+    fullTitle = `${T}${suffix}`;
+  }
+
+  return fullTitle;
 }
 
 export function useSeo({
@@ -58,9 +140,8 @@ export function useSeo({
     // 1. Title
     document.title = title;
 
-    // 2. Clean description: strip HTML and truncate to 160 chars
-    const cleanDesc = stripHtml(description)
-      .slice(0, 160);
+    // 2. Clean description: strip HTML and truncate to 155 chars
+    const cleanDesc = stripHtmlToPlainText(description, 155);
 
     // 3. Canonical URL: no query string, no trailing slash except root
     const cleanPath = path.split('?')[0];

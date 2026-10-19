@@ -2,11 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Search 
 } from 'lucide-react';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Post } from '../types';
+import { Post, MonetizationConfig } from '../types';
 import { useSeo } from '../lib/seo';
 import { JobCard } from '../components/JobCard';
+import { AdSlot } from '../components/ads/AdSlot';
 
 export const JobsPage = () => {
   const currentYear = new Date().getFullYear();
@@ -20,6 +21,7 @@ export const JobsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('ALL');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'deadline'>('newest');
+  const [monetization, setMonetization] = useState<MonetizationConfig | null>(null);
 
   const tabs = ['ALL', 'FULL-TIME', 'PART-TIME', 'REMOTE', 'INTERNSHIP'];
 
@@ -44,6 +46,13 @@ export const JobsPage = () => {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubMonetization = onSnapshot(doc(db, 'settings', 'monetization'), (docSnap) => {
+      if (docSnap.exists()) setMonetization(docSnap.data() as MonetizationConfig);
+    });
+    return () => unsubMonetization();
   }, []);
 
   const filteredJobs = useMemo(() => {
@@ -187,9 +196,23 @@ export const JobsPage = () => {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {filteredJobs.map((post) => (
-              <JobCard key={post.id} post={post} showExcerpt={false} />
-            ))}
+            {filteredJobs.flatMap((post, index) => {
+              const items = [
+                <JobCard key={post.id} post={post} showExcerpt={false} />
+              ];
+
+              if (monetization?.blogAdsEnabled && 
+                  (index + 1) % (monetization.homepageAdFrequency || 5) === 0 &&
+                  (index + 1) / (monetization.homepageAdFrequency || 5) <= (monetization.homepageMaxAds || 3)) {
+                items.push(
+                  <div key={`ad-${post.id}`}>
+                    <AdSlot zone="between-posts" />
+                  </div>
+                );
+              }
+
+              return items;
+            })}
           </div>
         )}
       </div>

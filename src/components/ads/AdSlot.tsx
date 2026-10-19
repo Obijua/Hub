@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { db, auth } from '../../lib/firebase';
+import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { MonetizationConfig } from '../../types';
 import { motion } from 'motion/react';
-import { Layout } from 'lucide-react';
 import { AdRenderer } from './AdRenderer';
+import { useAuth } from '../AuthProvider';
 
 interface AdSlotProps {
   zone: string;
@@ -13,7 +13,8 @@ interface AdSlotProps {
 
 export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
   const [config, setConfig] = useState<MonetizationConfig | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -28,14 +29,6 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
     };
 
     fetchConfig();
-
-    const checkAdmin = () => {
-      const isAdminSession = localStorage.getItem('cb_admin_session');
-      if (isAdminSession || auth.currentUser) {
-        setIsAdmin(true); 
-      }
-    };
-    checkAdmin();
   }, []);
 
   if (!config || !config.masterSwitch) return null;
@@ -45,17 +38,29 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
   let adNetwork = 'Off';
   let adCode = '';
 
-  if (zone === 'post-detail-top' || zone === 'post-detail-bottom') {
+  if (zone === 'between-posts') {
+    zoneEnabled = !!config.masterSwitch && config.blogAdsEnabled !== false;
+    adCode = config.zones?.['between-posts']?.adCode || config.articleAdCode || '';
+    adNetwork = config.zones?.['between-posts']?.network || config.articleAdNetwork || 'Custom Code';
+  } else if (zone === 'homepage-hero-bottom') {
+    zoneEnabled = !!config.heroAdEnabled;
+    adCode = config.heroAdCode || '';
+    adNetwork = config.homepageAdNetwork || 'Custom Code';
+  } else if (zone === 'sidebar') {
+    zoneEnabled = !!config.sidebarAdEnabled;
+    adCode = config.sidebarAdCode || '';
+    adNetwork = config.articleAdNetwork || 'Custom Code';
+  } else if (zone === 'navbar-banner-after' || zone === 'before-footer') {
+    zoneEnabled = !!config.masterSwitch;
+    adCode = config.zones?.[zone]?.adCode || '';
+    adNetwork = config.zones?.[zone]?.network || 'Custom Code';
+  } else if (zone === 'post-detail-top' || zone === 'post-detail-bottom') {
     zoneEnabled = config.articleAdsEnabled;
     adNetwork = config.articleAdNetwork;
     adCode = config.articleAdCode;
     
     if (zone === 'post-detail-top' && !config.aboveArticleAdEnabled) zoneEnabled = false;
     if (zone === 'post-detail-bottom' && !config.belowArticleAdEnabled) zoneEnabled = false;
-  } else if (zone === 'sidebar') {
-    zoneEnabled = config.sidebarAdEnabled;
-    adNetwork = config.articleAdNetwork;
-    adCode = config.sidebarAdCode;
   } else if (zone.startsWith('homepage')) {
     zoneEnabled = config.homepageAdsEnabled;
     adNetwork = config.homepageAdNetwork;
@@ -65,10 +70,6 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
       zoneEnabled = config.heroAdEnabled;
       adCode = config.heroAdCode;
     }
-  } else if (zone === 'between-posts') {
-    zoneEnabled = config.blogAdsEnabled;
-    adNetwork = config.articleAdNetwork;
-    adCode = config.articleAdCode;
   } else {
     const legacyZone = config.zones?.[zone];
     zoneEnabled = legacyZone?.enabled || false;
@@ -85,29 +86,8 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
 
   const hasCode = adCode && typeof adCode === 'string' && adCode.trim() !== '';
 
-  // For normal visitors, if no code exists, render nothing
-  if (!hasCode && !isAdmin) {
+  if (!hasCode) {
     return null;
-  }
-
-  // Admin Placeholder when no code exists
-  if (isAdmin && (!hasCode || config.hideAdsForAdmin)) {
-    return (
-      <motion.div 
-        layout
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className={`my-8 flex flex-col items-center ${className}`}
-      >
-        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Advertisement Placeholder</span>
-        <div className="w-full max-w-4xl min-h-[100px] border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-gray-900/50">
-          <Layout className="h-6 w-6 text-gray-300 mb-2" />
-          <p className="text-sm font-bold text-gray-400 uppercase tracking-tight">Ad Zone: {String(zone).replace(/-/g, ' ')}</p>
-          <p className="text-[10px] text-gray-400 mt-1 italic">{hasCode ? 'Ads are hidden for admins' : 'Ad space — configure in Admin → Monetization'}</p>
-        </div>
-      </motion.div>
-    );
   }
 
   return (

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { db, auth } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { AdRenderer } from './ads/AdRenderer';
+import { useAuth } from './AuthProvider';
 
 interface InArticleAdProps {
   position: number;
@@ -9,6 +10,7 @@ interface InArticleAdProps {
 
 const InArticleAd = ({ position }: InArticleAdProps) => {
   const [adConfig, setAdConfig] = useState<any>(null);
+  const { profile } = useAuth();
 
   useEffect(() => {
     const fetchAdConfig = async () => {
@@ -34,7 +36,7 @@ const InArticleAd = ({ position }: InArticleAdProps) => {
     return null;
   }
 
-  const isAdmin = !!(localStorage.getItem('cb_admin_session') || auth.currentUser);
+  const isAdmin = profile?.role === 'admin';
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   if (adConfig.hideAdsOnMobile && isMobile) {
