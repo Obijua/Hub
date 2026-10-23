@@ -24,3 +24,10 @@ export function stripHtml(html: string): string {
     return "";
   }
 }
+
+export function postPath(post: any): string {
+  if (post && post.slug && typeof post.slug === 'string' && post.slug.trim() !== '') {
+    return `/post/${post.slug}`;
+  }
+  return `/jobs/${post?.id || ''}`;
+}

@@ -75,6 +75,7 @@ export const AdminPostFormPage = () => {
   const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [publishedPost, setPublishedPost] = useState<any>(null);
+  const [existingSlug, setExistingSlug] = useState('');
   
   const [formData, setFormData] = useState({
     title: '',
@@ -223,6 +224,7 @@ export const AdminPostFormPage = () => {
           externalLinkText: data.externalLinkText || '',
         });
         setThumbnailPreview(data.thumbnail);
+        setExistingSlug(data.slug || '');
         setOgImagePreview(data.ogImage || '');
         if (data.thumbnail && !data.thumbnail.startsWith('data:')) {
           setManualThumbnailUrl(data.thumbnail);
@@ -380,13 +382,17 @@ export const AdminPostFormPage = () => {
 
       // Now build postData using finalThumbnailURL only
       // Never use thumbnailPreview (base64) in postData
+      const finalSlug = (isEdit && existingSlug && existingSlug.trim() !== '')
+        ? existingSlug
+        : (formData.title?.trim() || "post")
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, "")
+            .replace(/\s+/g, "-")
+            .slice(0, 60) + "-" + Date.now();
+
       const postData: any = {
         title: formData.title?.trim() || "Untitled Post",
-        slug: (formData.title?.trim() || "post")
-          .toLowerCase()
-          .replace(/[^a-z0-9\s]/g, "")
-          .replace(/\s+/g, "-")
-          .slice(0, 60) + "-" + Date.now(),
+        slug: finalSlug,
         category: formData.category || "opportunity",
         description: formData.description || "",
         thumbnail: finalThumbnailURL,

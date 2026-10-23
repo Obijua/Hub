@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Post } from '../types';
 import { MapPin, Briefcase } from 'lucide-react';
 import { stripHtmlToPlainText } from '../lib/seo';
+import { postPath } from '../lib/utils';
 
 interface JobCardProps {
   post: Post;
@@ -30,7 +31,7 @@ export const JobCard = ({ post, showExcerpt = false }: JobCardProps) => {
   const navigate = useNavigate();
   const pAny = post as any;
   
-  const companyName = pAny?.company || pAny?.employer || pAny?.organizationName || '';
+  const companyName = pAny?.company || pAny?.employer || pAny?.organizationName || pAny?.recruiterCompany || '';
   const locationText = post?.location || '';
   const rawJobType = pAny?.jobType || pAny?.type || '';
   const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 'Internship', 'Contract', 'Freelance'];
@@ -42,7 +43,7 @@ export const JobCard = ({ post, showExcerpt = false }: JobCardProps) => {
   const excerpt = showExcerpt ? getExcerpt(post.description) : '';
 
   const handleClick = () => {
-    const targetUrl = post.slug ? `/post/${post.slug}` : `/jobs/${post.id}`;
+    const targetUrl = postPath(post);
     navigate(targetUrl, { state: { job: post } });
   };
 

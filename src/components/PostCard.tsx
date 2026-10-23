@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Post } from '../types';
-import { cn, stripHtml } from '../lib/utils';
+import { cn, stripHtml, postPath } from '../lib/utils';
 import { MapPin, Wallet } from 'lucide-react';
 
 interface PostCardProps {
@@ -40,7 +40,7 @@ export const PostCard = ({ post, featured = false }: PostCardProps) => {
   const cardTags = getTags(post.tags);
   
   return (
-    <Link to={`/post/${post.slug}`} className="block">
+    <Link to={postPath(post)} className="block">
       <div className={cn(
         "rounded-[1.5rem] bg-white border border-gray-100 p-8 flex flex-col gap-6",
         "transition-all duration-300",

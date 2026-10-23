@@ -12,6 +12,7 @@ import { db, auth } from '../lib/firebase';
 import { Post, CategoryConfig } from '../types';
 import AdUnit from '../components/AdUnit';
 import { useSeo, setJsonLd } from '../lib/seo';
+import { postPath } from '../lib/utils';
 
 export const HomePage = () => {
   const currentYear = new Date().getFullYear();
@@ -28,6 +29,7 @@ export const HomePage = () => {
         {
           "@type": "WebSite",
           "name": "Hub & Jobs",
+          "alternateName": ["Hub and Jobs", "HubandJobs", "hubandjobs.com"],
           "url": "https://www.hubandjobs.com/",
           "potentialAction": {
             "@type": "SearchAction",
@@ -286,7 +288,7 @@ export const HomePage = () => {
             return (
               <div key={post.id || index}>
                 <div 
-                  onClick={() => navigate(`/jobs/${post.id}`, { state: { job: post } })}
+                  onClick={() => navigate(postPath(post), { state: { job: post } })}
                   className="bg-white shadow-sm rounded-sm p-4 transition-all cursor-pointer hover:bg-slate-50/80"
                 >
                   {/* Row 1 */}
@@ -346,7 +348,7 @@ export const HomePage = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/jobs/${post.id}`, { state: { job: post } });
+                        navigate(postPath(post), { state: { job: post } });
                       }}
                       className="text-xs font-semibold px-3 py-1.5 rounded-sm bg-[#1E3B8B] text-white hover:bg-[#162d6e] shadow-sm transition-all"
                     >

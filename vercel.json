@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    {
+      "source": "/category/udemy-coupon",
+      "destination": "/category/courses-",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
