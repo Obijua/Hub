@@ -143,6 +143,62 @@ async function fetchPostById(id: string, projectId: string, dbId: string, apiKey
   return parseFirestoreDoc(doc);
 }
 
+async function queryPostsByCategory(catSlug: string, projectId: string, dbId: string, apiKey: string) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents:runQuery?key=${apiKey}`;
+  const body = {
+    structuredQuery: {
+      from: [{ collectionId: 'posts' }],
+      where: {
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'category' },
+                op: 'EQUAL',
+                value: { stringValue: catSlug }
+              }
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'isActive' },
+                op: 'EQUAL',
+                value: { booleanValue: true }
+              }
+            }
+          ]
+        }
+      },
+      orderBy: [
+        {
+          field: { fieldPath: 'createdAt' },
+          direction: 'DESCENDING'
+        }
+      ],
+      limit: 50
+    }
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    return [];
+  }
+
+  const results = await res.json();
+  const posts = [];
+  for (const row of results) {
+    if (row.document) {
+      posts.push(parseFirestoreDoc(row.document));
+    }
+  }
+  return posts;
+}
+
 function escapeHtml(str: string): string {
   if (!str) return '';
   return String(str)
@@ -189,6 +245,21 @@ function stripHtml(html: string, maxLength?: number): string {
   }
 
   return text;
+}
+
+function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  let s = String(html);
+  s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\/definitions|\1>/gi, '');
+  s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+  s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '');
+  s = s.replace(/\s+on[a-z]+\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '');
+  s = s.replace(/href\s*=\s*(["'])javascript:[^"']*\1/gi, 'href="#"');
+  s = s.replace(/href\s*=\s*javascript:[^\s>]+/gi, 'href="#"');
+  if (s.length > 20000) {
+    s = s.slice(0, 20000);
+  }
+  return s;
 }
 
 function buildPageTitle(title: string, company: string, location: string): string {
@@ -399,6 +470,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 </head>`;
 
     html = html.replace('</head>', () => seoTags);
+
+    // Inject crawler-visible content into <div id="root"></div>
+    let contentHtml = '';
+    try {
+      if ((type === 'post' || type === 'job') && docData) {
+        const postTitle = escapeHtml(docData.title || '');
+        const company = docData.company || docData.companyName || docData.employer || docData.organizationName || docData.recruiterCompany || '';
+        const location = docData.location || '';
+        const rawJobType = docData.jobType || docData.type || '';
+
+        const metaLineParts = [];
+        if (company) metaLineParts.push(escapeHtml(company));
+        if (location) metaLineParts.push(escapeHtml(location));
+        if (rawJobType) metaLineParts.push(escapeHtml(rawJobType));
+        const metaLine = metaLineParts.join(' • ');
+
+        const sanitizedDesc = sanitizeHtml(docData.description || '');
+
+        contentHtml = `
+          <article style="font-family:system-ui,sans-serif;padding:16px;max-width:430px;margin:0 auto;color:#0f172a">
+            <h1 style="font-size:22px;font-weight:700;margin-bottom:8px;line-height:1.3">${postTitle}</h1>
+            ${metaLine ? `<p style="font-size:14px;color:#475569;margin-bottom:16px">${metaLine}</p>` : ''}
+            <div style="font-size:15px;line-height:1.6;word-break:break-word">${sanitizedDesc}</div>
+            <p style="margin-top:24px"><a href="/" style="color:#1E3B8B;text-decoration:underline">Hub &amp; Jobs home</a></p>
+          </article>
+        `;
+      } else if (type === 'category' && docData) {
+        const catName = escapeHtml(docData.name || slug || 'Category');
+        const catDesc = escapeHtml(docData.description ? stripHtml(docData.description, 155) : `Explore latest ${catName} opportunities, jobs, and updates in Nigeria on Hub & Jobs.`);
+
+        const catPosts = await queryPostsByCategory(slug, projectId, dbId, apiKey);
+
+        let postsListHtml = '';
+        if (catPosts && catPosts.length > 0) {
+          postsListHtml = '<ul style="padding-left:20px;line-height:2">';
+          for (const p of catPosts) {
+            const pTitle = escapeHtml(p.title || 'Untitled');
+            const pPath = (p.slug && String(p.slug).trim() !== '') ? `/post/${p.slug}` : `/jobs/${p.id}`;
+            postsListHtml += `<li><a href="${pPath}" style="color:#1E3B8B;text-decoration:underline">${pTitle}</a></li>`;
+          }
+          postsListHtml += '</ul>';
+        } else {
+          postsListHtml = '<p style="color:#475569">No opportunities found in this category yet.</p>';
+        }
+
+        contentHtml = `
+          <div style="font-family:system-ui,sans-serif;padding:16px;max-width:430px;margin:0 auto;color:#0f172a">
+            <h1 style="font-size:22px;font-weight:700;margin-bottom:8px;line-height:1.3">${catName} Opportunities</h1>
+            <p style="font-size:15px;color:#475569;margin-bottom:16px;line-height:1.5">${catDesc}</p>
+            ${postsListHtml}
+            <p style="margin-top:24px"><a href="/" style="color:#1E3B8B;text-decoration:underline">Hub &amp; Jobs home</a></p>
+          </div>
+        `;
+      }
+    } catch (contentErr) {
+      console.error("Content block generation failed:", contentErr);
+      contentHtml = '';
+    }
+
+    if (contentHtml) {
+      html = html.replace('<div id="root"></div>', `<div id="root">${contentHtml}</div>`);
+    }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=86400');
