@@ -83,6 +83,44 @@ export const HomePage = () => {
   }, []);
 
   useEffect(() => {
+    fetch('/api/posts?limit=50')
+      .then(res => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then(data => {
+        if (data && Array.isArray(data.posts)) {
+          setPosts(prev => {
+            if (prev.length > 0) return prev;
+            const transformed = data.posts.map((p: any) => {
+              const wrapDate = (dateStr: string) => {
+                if (!dateStr) return null;
+                const d = new Date(dateStr);
+                const time = isNaN(d.getTime()) ? 0 : d.getTime();
+                const seconds = Math.floor(time / 1000);
+                const nanoseconds = (time % 1000) * 1000000;
+                return {
+                  seconds,
+                  nanoseconds,
+                  toDate: () => d,
+                  toMillis: () => time
+                };
+              };
+              return {
+                ...p,
+                createdAt: wrapDate(p.createdAt),
+                updatedAt: wrapDate(p.updatedAt),
+              };
+            });
+            setLoading(false);
+            return transformed;
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const q = query(
       collection(db, 'categories'),
       where('isActive', '==', true),

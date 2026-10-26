@@ -53,6 +53,7 @@ const AppRoutes = () => {
   const [maintenance, setMaintenance] = useState(false);
   const [maintenanceMsg, setMaintenanceMsg] = useState('');
   const [loading, setLoading] = useState(true);
+  const [timedOut, setTimedOut] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -62,6 +63,13 @@ const AppRoutes = () => {
   useEffect(() => {
     trackPageView(location.pathname + location.search);
   }, [location]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setTimedOut(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Ad script injection is now handled by AdScriptInjector component
 
@@ -90,7 +98,7 @@ const AppRoutes = () => {
     }
   }, [authLoading, profile]);
 
-  if (loading || authLoading) {
+  if (!timedOut && (loading || authLoading)) {
     return (
       <div className="min-h-screen bg-primary flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
