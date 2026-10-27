@@ -17,6 +17,52 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, onSnapshot } from 'firebase/firestore';
 import { AdSlot } from '../components/ads/AdSlot';
 
+const wrapDate = (dateVal: any) => {
+  if (!dateVal) return null;
+  if (typeof dateVal?.toDate === 'function') return dateVal;
+  const d = new Date(dateVal);
+  const time = isNaN(d.getTime()) ? 0 : d.getTime();
+  const seconds = Math.floor(time / 1000);
+  const nanoseconds = (time % 1000) * 1000000;
+  return {
+    seconds,
+    nanoseconds,
+    toDate: () => d,
+    toMillis: () => time
+  };
+};
+
+const getEmbeddedCategoryData = (slugParam?: string) => {
+  if (typeof document === 'undefined') return null;
+  try {
+    const el = document.getElementById('hj-data');
+    if (!el || !el.textContent) return null;
+    const data = JSON.parse(el.textContent);
+    if (data && data.kind === 'category' && data.category) {
+      if (slugParam && data.category.slug === slugParam) {
+        const rawPosts = Array.isArray(data.posts) ? data.posts : [];
+        const transformedPosts: Post[] = rawPosts.map((p: any) => ({
+          ...p,
+          createdAt: wrapDate(p.createdAt),
+          updatedAt: wrapDate(p.updatedAt),
+          deadline: wrapDate(p.deadline)
+        }));
+        return {
+          category: {
+            ...data.category,
+            createdAt: wrapDate(data.category.createdAt),
+            updatedAt: wrapDate(data.category.updatedAt)
+          } as CategoryConfig,
+          posts: transformedPosts
+        };
+      }
+    }
+  } catch {
+    // ignore parse error
+  }
+  return null;
+};
+
 const MobileDocPromo = React.forwardRef<HTMLDivElement, { prices: any }>(({ prices }, ref) => (
   <div ref={ref} className="lg:hidden my-3 p-4 bg-amber-600 text-white" style={{ borderRadius: '2px' }}>
     <div className="flex items-center space-x-2 mb-2">
@@ -120,12 +166,17 @@ const MobilePopup = ({ prices }: { prices: any }) => {
 
 export const Category = () => {
   const { slug } = useParams<{ slug: string }>();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const embeddedData = useMemo(() => getEmbeddedCategoryData(slug), [slug]);
+  const initialCategory = embeddedData?.category || null;
+  const initialPosts = embeddedData?.posts || [];
+
+  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const [loading, setLoading] = useState(!initialCategory);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'deadline'>('newest');
   const [visibleCount, setVisibleCount] = useState(12);
-  const [meta, setMeta] = useState<CategoryConfig | null>(null);
+  const [meta, setMeta] = useState<CategoryConfig | null>(initialCategory);
 
   useSeo({
     title: meta ? `${meta.name} Opportunities in Nigeria | Hub & Jobs` : `${slug?.toUpperCase() || 'Category'} | Hub & Jobs`,
@@ -152,23 +203,37 @@ export const Category = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!slug) return;
-      setLoading(true);
+      if (!initialCategory) {
+        setMeta(null);
+        setPosts([]);
+        setLoading(true);
+      }
       try {
         const qMeta = query(collection(db, 'categories'), where('slug', '==', slug));
         const snapMeta = await getDocs(qMeta);
         if (!snapMeta.empty) {
           setMeta({ id: snapMeta.docs[0].id, ...snapMeta.docs[0].data() } as CategoryConfig);
         } else {
-          setMeta(null);
+          if (!initialCategory) {
+            setMeta(null);
+          }
         }
 
         const fetchedPosts = await getAllPosts({ 
           category: slug as CategoryType,
           limitCount: 100
         });
-        setPosts(fetchedPosts || []);
+        if (fetchedPosts && fetchedPosts.length > 0) {
+          setPosts(fetchedPosts);
+        } else if (!initialCategory) {
+          setPosts([]);
+        }
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'categories/posts');
+        if (!initialCategory) {
+          handleFirestoreError(error, OperationType.LIST, 'categories/posts');
+        } else {
+          console.error("Firestore category fetch error:", error);
+        }
       } finally {
         setLoading(false);
       }
@@ -176,7 +241,7 @@ export const Category = () => {
 
     fetchData();
     setVisibleCount(12);
-  }, [slug]);
+  }, [slug, initialCategory]);
 
   const filteredAndSortedPosts = useMemo(() => {
     let result = [...posts];
@@ -203,6 +268,18 @@ export const Category = () => {
   }, [posts, searchTerm, sortBy]);
 
   if (!meta) {
+    if (loading) {
+      return (
+        <div style={{ maxWidth: '430px', margin: '0 auto', backgroundColor: '#EEF2FF', minHeight: '100vh', padding: '16px' }}>
+          <div className="animate-pulse bg-white mb-4" style={{ height: '120px', borderRadius: '2px' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="animate-pulse bg-white" style={{ height: '140px', border: '1px solid #E2E8F0', borderRadius: '2px' }} />
+            ))}
+          </div>
+        </div>
+      );
+    }
     return (
       <div style={{ maxWidth: '430px', margin: '0 auto', padding: '48px 16px', backgroundColor: '#EEF2FF', minHeight: '100vh', textAlign: 'center' }}>
         <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0F172A', marginBottom: '12px' }}>Category not found</h2>

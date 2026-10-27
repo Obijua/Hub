@@ -12,6 +12,7 @@ function parseFirestoreField(field: any): any {
   if ('integerValue' in field) return parseInt(field.integerValue, 10);
   if ('doubleValue' in field) return parseFloat(field.doubleValue);
   if ('booleanValue' in field) return field.booleanValue;
+  if ('nullValue' in field) return null;
   if ('timestampValue' in field) return field.timestampValue;
   if ('arrayValue' in field) return (field.arrayValue.values || []).map(parseFirestoreField);
   if ('mapValue' in field) {
@@ -250,7 +251,6 @@ function stripHtml(html: string, maxLength?: number): string {
 function sanitizeHtml(html: string): string {
   if (!html) return '';
   let s = String(html);
-  s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\/definitions|\1>/gi, '');
   s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
   s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '');
   s = s.replace(/\s+on[a-z]+\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '');
@@ -416,6 +416,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).send(indexHtml);
     }
 
+    let catPosts: any[] = [];
+    if (type === 'category') {
+      try {
+        catPosts = await queryPostsByCategory(slug, projectId, dbId, apiKey);
+      } catch (e) {
+        catPosts = [];
+      }
+    }
+
+    let dataScriptTag = '';
+    try {
+      let hjData: any = null;
+      if (type === 'post' || type === 'job') {
+        hjData = { kind: 'post', post: docData };
+      } else if (type === 'category') {
+        hjData = { kind: 'category', category: docData, posts: catPosts };
+      }
+      if (hjData) {
+        let safeJson = JSON.stringify(hjData);
+        if (apiKey) {
+          safeJson = safeJson.split(apiKey).join('');
+        }
+        safeJson = safeJson.replace(/</g, '\\u003c');
+        dataScriptTag = `\n  <script id="hj-data" type="application/json">${safeJson}</script>`;
+      }
+    } catch (dataErr) {
+      console.error("Data script generation failed:", dataErr);
+      dataScriptTag = '';
+    }
+
     let title = '';
     let description = '';
     let image = 'https://www.hubandjobs.com/og-image.jpg';
@@ -466,7 +496,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapedTitle}" />
   <meta name="twitter:description" content="${escapedDesc}" />
-  <meta name="twitter:image" content="${escapedImage}" />
+  <meta name="twitter:image" content="${escapedImage}" />${dataScriptTag}
 </head>`;
 
     html = html.replace('</head>', () => seoTags);
@@ -499,8 +529,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } else if (type === 'category' && docData) {
         const catName = escapeHtml(docData.name || slug || 'Category');
         const catDesc = escapeHtml(docData.description ? stripHtml(docData.description, 155) : `Explore latest ${catName} opportunities, jobs, and updates in Nigeria on Hub & Jobs.`);
-
-        const catPosts = await queryPostsByCategory(slug, projectId, dbId, apiKey);
 
         let postsListHtml = '';
         if (catPosts && catPosts.length > 0) {

@@ -26,8 +26,47 @@ export const JobDetailPage = () => {
   const location = useLocation();
   const stateJob = (location.state as { job?: Post })?.job;
 
-  const [job, setJob] = useState<Post | null>(stateJob || null);
-  const [loading, setLoading] = useState(!stateJob);
+  const embeddedJob = useMemo(() => {
+    if (typeof document === 'undefined') return null;
+    try {
+      const el = document.getElementById('hj-data');
+      if (!el || !el.textContent) return null;
+      const data = JSON.parse(el.textContent);
+      if (data && data.kind === 'post' && data.post) {
+        const matchSlug = Boolean(slug && data.post.slug === slug);
+        const matchJobId = Boolean(jobId && data.post.id === jobId);
+        if (matchSlug || matchJobId) {
+          const wrapDate = (dateVal: any) => {
+            if (!dateVal) return null;
+            if (typeof dateVal?.toDate === 'function') return dateVal;
+            const d = new Date(dateVal);
+            const time = isNaN(d.getTime()) ? 0 : d.getTime();
+            const seconds = Math.floor(time / 1000);
+            const nanoseconds = (time % 1000) * 1000000;
+            return {
+              seconds,
+              nanoseconds,
+              toDate: () => d,
+              toMillis: () => time
+            };
+          };
+          return {
+            ...data.post,
+            createdAt: wrapDate(data.post.createdAt),
+            updatedAt: wrapDate(data.post.updatedAt)
+          } as Post;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }, [slug, jobId]);
+
+  const initialPost = stateJob || embeddedJob;
+
+  const [job, setJob] = useState<Post | null>(initialPost);
+  const [loading, setLoading] = useState(!initialPost);
   const [hasApplied, setHasApplied] = useState(false);
   const [adConfig, setAdConfig] = useState<any>(null);
 
@@ -38,7 +77,7 @@ export const JobDetailPage = () => {
   const companyName = 
     pAny?.company || 
     pAny?.companyName || 
-    pAny?.employer ||
+    pAny?.employer || 
     pAny?.organizationName || 
     pAny?.recruiterCompany || '';
 
@@ -163,7 +202,10 @@ export const JobDetailPage = () => {
     const fetchJob = async () => {
       if (stateJob) return;
       try {
-        setLoading(true);
+        if (!initialPost) {
+          setJob(null);
+          setLoading(true);
+        }
         if (slug) {
           const q = query(collection(db, 'posts'), where('slug', '==', slug), limit(1));
           const querySnapshot = await getDocs(q);
@@ -173,7 +215,9 @@ export const JobDetailPage = () => {
             setJob(data);
             incrementViews(data.id);
           } else {
-            toast.error('Post not found');
+            if (!initialPost) {
+              toast.error('Post not found');
+            }
           }
         } else if (jobId) {
           const docRef = doc(db, 'posts', jobId);
@@ -181,18 +225,22 @@ export const JobDetailPage = () => {
           if (docSnap.exists()) {
             setJob({ id: docSnap.id, ...docSnap.data() } as Post);
           } else {
-            toast.error('Job not found');
+            if (!initialPost) {
+              toast.error('Job not found');
+            }
           }
         }
       } catch (e) {
         console.error(e);
-        toast.error('Failed to load job details');
+        if (!initialPost) {
+          toast.error('Failed to load job details');
+        }
       } finally {
         setLoading(false);
       }
     };
     fetchJob();
-  }, [jobId, slug, stateJob]);
+  }, [jobId, slug, stateJob, initialPost]);
 
   useEffect(() => {
     const fetchAdConfig = async () => {
