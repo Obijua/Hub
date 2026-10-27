@@ -100,8 +100,33 @@ const AppRoutes = () => {
 
   if (!timedOut && (loading || authLoading)) {
     return (
-      <div className="min-h-screen bg-primary flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
+      <div className="min-h-screen bg-[#EEF2FF]">
+        <header style={{ background: '#1E3B8B', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ width: '40px', height: '40px', background: '#fff', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src="/favicon.svg" alt="" width="26" height="26" style={{ display: 'block' }} />
+          </span>
+          <span style={{ color: '#fff', fontSize: '20px', fontWeight: 700 }}>Hub <span style={{ color: '#E8B736' }}>&amp;</span> Jobs</span>
+        </header>
+        <main style={{ padding: '16px', maxWidth: '430px', margin: '0 auto' }} aria-hidden="true">
+          <div style={{ height: '44px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '2px', marginBottom: '16px' }} className="animate-pulse" />
+          <div className="flex gap-2 mb-4 overflow-hidden">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div key={n} style={{ height: '32px', width: '70px', background: '#fff', border: '1px solid #E2E8F0', borderRadius: '2px' }} className="animate-pulse shrink-0" />
+            ))}
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: '2px', padding: '16px' }} className="animate-pulse">
+                <div style={{ height: '18px', width: '80%', background: '#E2E8F0', borderRadius: '2px', marginBottom: '8px' }} />
+                <div style={{ height: '14px', width: '45%', background: '#E2E8F0', borderRadius: '2px', marginBottom: '16px' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid #F1F5F9' }}>
+                  <div style={{ height: '24px', width: '70px', background: '#EEF2F7', borderRadius: '2px' }} />
+                  <div style={{ height: '32px', width: '90px', background: '#1E3B8B', opacity: 0.25, borderRadius: '2px' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
       </div>
     );
   }
