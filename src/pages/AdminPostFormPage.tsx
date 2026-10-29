@@ -384,11 +384,7 @@ export const AdminPostFormPage = () => {
       // Never use thumbnailPreview (base64) in postData
       const finalSlug = (isEdit && existingSlug && existingSlug.trim() !== '')
         ? existingSlug
-        : (formData.title?.trim() || "post")
-            .toLowerCase()
-            .replace(/[^a-z0-9\s]/g, "")
-            .replace(/\s+/g, "-")
-            .slice(0, 60) + "-" + Date.now();
+        : generateSlug(formData.title?.trim() || "post");
 
       const postData: any = {
         title: formData.title?.trim() || "Untitled Post",

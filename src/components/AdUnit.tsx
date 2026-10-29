@@ -20,6 +20,7 @@ const AdUnit = ({
 }: AdUnitProps) => {
   const [adConfig, setAdConfig] = useState<MonetizationConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEmpty, setIsEmpty] = useState(false);
   const { profile } = useAuth();
 
   useEffect(() => {
@@ -64,11 +65,16 @@ const AdUnit = ({
   }
 
   return (
-    <div className={`ad-container my-4 ${className}`}>
-      <p className="text-[10px] text-gray-400 text-center mb-1 uppercase tracking-widest font-bold">
-        {label}
-      </p>
-      <AdRenderer adCode={adCode} className="w-full" />
+    <div 
+      className={`ad-container ${isEmpty ? '' : 'my-4'} ${className}`}
+      style={isEmpty ? { display: 'none' } : undefined}
+    >
+      {!isEmpty && (
+        <p className="text-[10px] text-gray-400 text-center mb-1 uppercase tracking-widest font-bold">
+          {label}
+        </p>
+      )}
+      <AdRenderer adCode={adCode} className="w-full" onEmpty={setIsEmpty} />
     </div>
   );
 };

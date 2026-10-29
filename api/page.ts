@@ -251,7 +251,7 @@ function stripHtml(html: string, maxLength?: number): string {
 function sanitizeHtml(html: string): string {
   if (!html) return '';
   let s = String(html);
-  s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+  s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\/1>/gi, '');
   s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '');
   s = s.replace(/\s+on[a-z]+\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '');
   s = s.replace(/href\s*=\s*(["'])javascript:[^"']*\1/gi, 'href="#"');
@@ -263,8 +263,9 @@ function sanitizeHtml(html: string): string {
 }
 
 function buildPageTitle(title: string, company: string, location: string): string {
-  let T = title || 'Opportunity';
-  if (T && T === T.toUpperCase() && /[A-Z]/.test(T)) {
+  let T = title ? String(title).trim() : 'Opportunity';
+  if (!T) T = 'Opportunity';
+  if (T === T.toUpperCase() && /[A-Z]/.test(T)) {
     T = T.toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
   }
 
@@ -273,20 +274,22 @@ function buildPageTitle(title: string, company: string, location: string): strin
     L = 'Nigeria';
   }
 
-  const hasComp = company && String(company).trim() !== '' && company !== 'Featured Employer';
+  const hasComp = Boolean(company && String(company).trim() !== '' && company !== 'Featured Employer');
+  const comp = hasComp ? String(company).trim() : '';
   const hasLoc = L !== '';
+  const isRemote = L.toLowerCase() === 'remote';
 
   let fullTitle = '';
   if (hasComp && hasLoc) {
-    fullTitle = `${T} at ${company} – ${L} | Hub & Jobs`;
+    fullTitle = `${T} at ${comp}, ${L} | Hub & Jobs`;
   } else if (hasLoc) {
-    if (L.toLowerCase() === 'remote') {
-      fullTitle = `${T} – Remote | Hub & Jobs`;
+    if (isRemote) {
+      fullTitle = `${T} (Remote) | Hub & Jobs`;
     } else {
-      fullTitle = `${T} in ${L} | Hub & Jobs`;
+      fullTitle = `${T}, ${L} | Hub & Jobs`;
     }
   } else if (hasComp) {
-    fullTitle = `${T} at ${company} | Hub & Jobs`;
+    fullTitle = `${T} at ${comp} | Hub & Jobs`;
   } else {
     fullTitle = `${T} | Hub & Jobs`;
   }
@@ -299,12 +302,12 @@ function buildPageTitle(title: string, company: string, location: string): strin
     const suffix = ' | Hub & Jobs';
     const availableForT = 65 - suffix.length - 1;
     if (availableForT > 0 && T.length > availableForT) {
-      let subT = T.slice(0, availableForT);
-      const lastSpace = subT.lastIndexOf(' ');
+      let cut = T.slice(0, availableForT);
+      const lastSpace = cut.lastIndexOf(' ');
       if (lastSpace > 0) {
-        subT = subT.slice(0, lastSpace);
+        cut = cut.slice(0, lastSpace);
       }
-      T = subT + '…';
+      T = cut + '…';
     } else {
       T = T.slice(0, Math.max(0, 65 - suffix.length));
     }
@@ -312,6 +315,51 @@ function buildPageTitle(title: string, company: string, location: string): strin
   }
 
   return fullTitle;
+}
+
+function buildPostDescription(
+  rawDesc: string,
+  location?: string,
+  jobType?: string,
+  salary?: string
+): string {
+  const factItems: string[] = [];
+  const locRaw = location ? String(location).trim() : '';
+  if (locRaw) {
+    factItems.push(`Location: ${locRaw}`);
+  }
+  const jtRaw = jobType ? String(jobType).trim() : '';
+  if (jtRaw) {
+    factItems.push(`Job Type: ${jtRaw}`);
+  }
+  const salRaw = salary ? String(salary).trim() : '';
+  if (salRaw) {
+    factItems.push(`Salary: ${salRaw}`);
+  }
+
+  const facts = factItems.join(' | ');
+  const text = stripHtml(rawDesc || '');
+
+  let description = '';
+  if (facts && text) {
+    description = `${facts} | ${text}`;
+  } else if (facts) {
+    description = facts;
+  } else if (text) {
+    description = text;
+  }
+
+  if (description.length > 175) {
+    const limit = 175 - 1;
+    let cut = description.slice(0, limit);
+    const lastSpace = cut.lastIndexOf(' ');
+    if (lastSpace > 0) {
+      cut = cut.slice(0, lastSpace);
+    }
+    description = cut + '…';
+  }
+
+  return description;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -453,10 +501,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (type === 'post' || type === 'job') {
       const company = docData.company || docData.companyName || docData.employer || docData.organizationName || docData.recruiterCompany || '';
       const location = docData.location || '';
+      const rawJobType = docData.jobType || docData.type || '';
       title = buildPageTitle(docData.title || '', company, location);
 
       const rawDesc = docData.description || docData.title || '';
-      description = stripHtml(rawDesc, 155) || 'Read details on Hub & Jobs.';
+      description = buildPostDescription(rawDesc, docData.location, rawJobType, docData.salary) || 'Read details on Hub & Jobs.';
     } else if (type === 'category') {
       const catName = docData.name || slug;
       title = docData.name ? `${docData.name} Opportunities in Nigeria | Hub & Jobs` : `${slug?.toUpperCase() || 'Category'} | Hub & Jobs`;
@@ -562,7 +611,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=86400');
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
     return res.status(200).send(html);
   } catch (error: any) {
     console.error("API page SSR error:", error);

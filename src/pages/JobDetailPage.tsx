@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Share2, MapPin, Briefcase, ExternalLink, MessageCircle } from 'lucide-react';
+import { ChevronLeft, Share2, MapPin, Briefcase, ExternalLink, MessageCircle, Mail } from 'lucide-react';
 import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import { toast } from 'sonner';
 import AdUnit from '../components/AdUnit';
-import { useSeo, setJsonLd, buildPageTitle, stripHtmlToPlainText } from '../lib/seo';
+import { useSeo, setJsonLd } from '../lib/seo';
 import { incrementViews } from '../lib/posts';
 
 const getTags = (postTags: any): string[] => {
@@ -18,6 +18,134 @@ const getTags = (postTags: any): string[] => {
     return postTags.split(',').map((t: string) => t.trim()).filter(Boolean);
   }
   return [];
+};
+
+const stripHtml = (html: string): string => {
+  if (!html) return '';
+  let text = String(html)
+    .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6]|ul|ol)>/gi, ' ')
+    .replace(/<[^>]*>?/gm, '');
+
+  text = text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex) => {
+      try { return String.fromCodePoint(parseInt(hex, 16)); } catch { return ''; }
+    })
+    .replace(/&#([0-9]+);/gi, (_, dec) => {
+      try { return String.fromCodePoint(parseInt(dec, 10)); } catch { return ''; }
+    })
+    .replace(/&amp;/gi, '&');
+
+  text = text
+    .replace(/[\u200B\u200C\u200D\u2060\uFEFF\u00AD]/g, '')
+    .replace(/\u00A0/g, ' ');
+
+  text = text.replace(/\s+/g, ' ').trim();
+  return text;
+};
+
+const buildPageTitle = (title: string, company: string, location: string): string => {
+  let T = title ? String(title).trim() : 'Opportunity';
+  if (!T) T = 'Opportunity';
+  if (T === T.toUpperCase() && /[A-Z]/.test(T)) {
+    T = T.toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
+  }
+
+  let L = location ? String(location).trim() : '';
+  if (L.toLowerCase() === 'nationwide') {
+    L = 'Nigeria';
+  }
+
+  const hasComp = Boolean(company && String(company).trim() !== '' && company !== 'Featured Employer');
+  const comp = hasComp ? String(company).trim() : '';
+  const hasLoc = L !== '';
+  const isRemote = L.toLowerCase() === 'remote';
+
+  let fullTitle = '';
+  if (hasComp && hasLoc) {
+    fullTitle = `${T} at ${comp}, ${L} | Hub & Jobs`;
+  } else if (hasLoc) {
+    if (isRemote) {
+      fullTitle = `${T} (Remote) | Hub & Jobs`;
+    } else {
+      fullTitle = `${T}, ${L} | Hub & Jobs`;
+    }
+  } else if (hasComp) {
+    fullTitle = `${T} at ${comp} | Hub & Jobs`;
+  } else {
+    fullTitle = `${T} | Hub & Jobs`;
+  }
+
+  if (fullTitle.length > 65) {
+    fullTitle = `${T} | Hub & Jobs`;
+  }
+
+  if (fullTitle.length > 65) {
+    const suffix = ' | Hub & Jobs';
+    const availableForT = 65 - suffix.length - 1;
+    if (availableForT > 0 && T.length > availableForT) {
+      let cut = T.slice(0, availableForT);
+      const lastSpace = cut.lastIndexOf(' ');
+      if (lastSpace > 0) {
+        cut = cut.slice(0, lastSpace);
+      }
+      T = cut + '…';
+    } else {
+      T = T.slice(0, Math.max(0, 65 - suffix.length));
+    }
+    fullTitle = `${T}${suffix}`;
+  }
+
+  return fullTitle;
+};
+
+const buildPostDescription = (
+  rawDesc: string,
+  location?: string,
+  jobType?: string,
+  salary?: string
+): string => {
+  const factItems: string[] = [];
+  const locRaw = location ? String(location).trim() : '';
+  if (locRaw) {
+    factItems.push(`Location: ${locRaw}`);
+  }
+  const jtRaw = jobType ? String(jobType).trim() : '';
+  if (jtRaw) {
+    factItems.push(`Job Type: ${jtRaw}`);
+  }
+  const salRaw = salary ? String(salary).trim() : '';
+  if (salRaw) {
+    factItems.push(`Salary: ${salRaw}`);
+  }
+
+  const facts = factItems.join(' | ');
+  const text = stripHtml(rawDesc || '');
+
+  let description = '';
+  if (facts && text) {
+    description = `${facts} | ${text}`;
+  } else if (facts) {
+    description = facts;
+  } else if (text) {
+    description = text;
+  }
+
+  if (description.length > 175) {
+    const limit = 175 - 1;
+    let cut = description.slice(0, limit);
+    const lastSpace = cut.lastIndexOf(' ');
+    if (lastSpace > 0) {
+      cut = cut.slice(0, lastSpace);
+    }
+    description = cut + '…';
+  }
+
+  return description;
 };
 
 export const JobDetailPage = () => {
@@ -83,16 +211,44 @@ export const JobDetailPage = () => {
 
   const locationText = job?.location || '';
 
+  const rawJobType = pAny?.jobType || pAny?.type || '';
+  const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 
+    'Internship', 'Contract', 'Freelance'];
+  const matchedType = VALID_TYPES.find(t => 
+    t.toLowerCase() === rawJobType.toLowerCase()
+  );
+  const jobType = matchedType || rawJobType || '';
+
   const pageTitle = useMemo(() => {
     return buildPageTitle(job?.title || '', companyName, locationText);
   }, [job, companyName, locationText]);
 
+  const pageDescription = useMemo(() => {
+    return buildPostDescription(job?.description || '', job?.location, jobType, job?.salary) || 'View job details and apply on Hub & Jobs.';
+  }, [job, jobType]);
+
   useSeo({
     title: pageTitle,
-    description: job?.description ? stripHtmlToPlainText(job.description, 155) : 'View job details and apply on Hub & Jobs.',
+    description: pageDescription,
     path: seoPath,
     noindex: noindex
   });
+
+  useEffect(() => {
+    if (!pageDescription) return;
+    const upsertMeta = (attrName: string, attrValue: string, content: string) => {
+      let el = document.querySelector(`meta[${attrName}="${attrValue}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(attrName, attrValue);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+    upsertMeta('name', 'description', pageDescription);
+    upsertMeta('property', 'og:description', pageDescription);
+    upsertMeta('name', 'twitter:description', pageDescription);
+  }, [pageDescription]);
 
   const jsonLdData = useMemo(() => {
     if (!job) return null;
@@ -272,30 +428,87 @@ export const JobDetailPage = () => {
     checkApplication();
   }, [job]);
 
-  const displayLocation = job?.location || 'Nigeria';
-  
-  const rawJobType = pAny?.jobType || pAny?.type || '';
-  const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 
-    'Internship', 'Contract', 'Freelance'];
-  const matchedType = VALID_TYPES.find(t => 
-    t.toLowerCase() === rawJobType.toLowerCase()
-  );
-  const jobType = matchedType || rawJobType || '';
+  const actionButtons = useMemo(() => {
+    if (!job) return [];
+    const p = job as any;
+    const list: Array<{
+      type: 'link' | 'whatsapp' | 'email';
+      url: string;
+      label: string;
+      bgColor: string;
+      icon: any;
+      isMailto?: boolean;
+    }> = [];
 
+    // 1. Link action
+    const rawExternalLink = typeof p.externalLink === 'string' ? p.externalLink.trim() : '';
+    const isLinkEmail = rawExternalLink.includes('@') && !/^https?:\/\//i.test(rawExternalLink);
+    if (rawExternalLink && !isLinkEmail) {
+      let linkUrl = rawExternalLink;
+      if (!/^https?:\/\//i.test(linkUrl)) {
+        linkUrl = 'https://' + linkUrl;
+      }
+      const linkLabel = (p.externalLinkText || p.ctaText)?.trim() || 'Apply Now';
+      list.push({
+        type: 'link',
+        url: linkUrl,
+        label: linkLabel,
+        bgColor: '#1E3B8B',
+        icon: ExternalLink
+      });
+    }
+
+    // 2. WhatsApp action
+    const rawWa = typeof p.whatsappNumber === 'string' ? p.whatsappNumber.trim() : (p.whatsappNumber ? String(p.whatsappNumber).trim() : '');
+    let waDigits = rawWa.replace(/\D/g, '');
+    if (waDigits.length === 11 && waDigits.startsWith('0')) {
+      waDigits = '234' + waDigits.slice(1);
+    }
+    if (waDigits.length > 0) {
+      const waUrl = `https://wa.me/${waDigits}`;
+      const waLabel = p.whatsappButtonText?.trim() || 'Send CV on WhatsApp';
+      list.push({
+        type: 'whatsapp',
+        url: waUrl,
+        label: waLabel,
+        bgColor: '#25D366',
+        icon: MessageCircle
+      });
+    }
+
+    // 3. Email action
+    let emailAddr = '';
+    if (typeof p.applicationEmail === 'string' && p.applicationEmail.includes('@')) {
+      emailAddr = p.applicationEmail.trim();
+    } else if (typeof p.email === 'string' && p.email.includes('@')) {
+      emailAddr = p.email.trim();
+    } else if (isLinkEmail) {
+      emailAddr = rawExternalLink;
+    }
+
+    if (emailAddr) {
+      const cleanEmail = emailAddr.replace(/^mailto:/i, '').trim();
+      if (cleanEmail) {
+        const subject = encodeURIComponent(job.title || 'Job Application');
+        const mailtoUrl = `mailto:${cleanEmail}?subject=${subject}`;
+        const emailLabel = p.emailButtonText?.trim() || 'Send On Email';
+        list.push({
+          type: 'email',
+          url: mailtoUrl,
+          label: emailLabel,
+          bgColor: '#1E3B8B',
+          icon: Mail,
+          isMailto: true
+        });
+      }
+    }
+
+    return list;
+  }, [job]);
+
+  const displayLocation = job?.location || 'Nigeria';
   const salaryText = job?.salary || 'Competitive';
   const requirements = pAny?.requirements || [];
-
-  const buttonText = pAny?.externalLinkText || pAny?.ctaText || 'Apply Now';
-
-  const isValidUrl = (url: string) => {
-    try {
-      const parsed = new URL(url);
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  };
-  const hasValidExternalLink = !!(pAny?.externalLink && typeof pAny.externalLink === 'string' && isValidUrl(pAny.externalLink.trim()));
 
   const handleShare = () => {
     const postUrl = job?.slug ? `https://www.hubandjobs.com/post/${job.slug}` : `https://www.hubandjobs.com/jobs/${job?.id || jobId || ''}`;
@@ -405,7 +618,7 @@ export const JobDetailPage = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#EEF2FF', overflowX: 'hidden', width: '100%', paddingBottom: '40px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#EEF2FF', overflowX: 'hidden', width: '100%', paddingBottom: '20px' }}>
 
       <style>{`
   * { box-sizing: border-box; }
@@ -566,6 +779,41 @@ export const JobDetailPage = () => {
         </div>
       </div>
 
+      {/* Action Buttons: Rendered directly after description in page flow before About card */}
+      {actionButtons.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', margin: '16px 0', padding: '0 16px', boxSizing: 'border-box' }}>
+          {actionButtons.map((btn, idx) => (
+            <a
+              key={idx}
+              href={btn.url}
+              target={btn.isMailto ? undefined : '_blank'}
+              rel={btn.isMailto ? undefined : 'noopener noreferrer'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                minHeight: '44px',
+                padding: '10px 20px',
+                fontSize: '15px',
+                fontWeight: 600,
+                borderRadius: '2px',
+                width: 'auto',
+                minWidth: '160px',
+                maxWidth: '100%',
+                backgroundColor: btn.bgColor,
+                color: '#ffffff',
+                textDecoration: 'none',
+                boxSizing: 'border-box'
+              }}
+            >
+              <btn.icon size={18} />
+              <span>{btn.label}</span>
+            </a>
+          ))}
+        </div>
+      )}
+
       {/* Requirements */}
       {requirements && requirements.length > 0 && (
         <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '0 16px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: 'calc(100% - 32px)', boxSizing: 'border-box' }}>
@@ -583,7 +831,7 @@ export const JobDetailPage = () => {
         </div>
       )}
 
-      {/* Footer */}
+      {/* Footer / About Card */}
       <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '24px', margin: '0 16px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', textAlign: 'center', width: 'calc(100% - 32px)', boxSizing: 'border-box' }}>
         <p style={{ fontSize: '17px', fontWeight: 700, color: '#0f172a' }}>Hub <span style={{ color: '#E8B736' }}>&</span> Jobs</p>
         <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '4px', lineHeight: '1.6' }}>Connecting top talent with exciting opportunities across Nigeria and beyond.</p>
@@ -592,21 +840,6 @@ export const JobDetailPage = () => {
       <div style={{ margin: '0 16px' }}>
         <AdUnit slot="jobdetail-footer" label="Advertisement" />
       </div>
-
-      {/* Apply Now Button (In normal page flow if valid external link exists) */}
-      {hasValidExternalLink && (
-        <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: 'calc(100% - 32px)', boxSizing: 'border-box' }}>
-          <a
-            href={String(pAny.externalLink).trim()}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', backgroundColor: '#1E3B8B', color: 'white', border: 'none', borderRadius: '4px', padding: '14px', fontWeight: 600, fontSize: '14px', textDecoration: 'none', gap: '6px', boxSizing: 'border-box' }}
-          >
-            <ExternalLink size={16} />
-            {buttonText}
-          </a>
-        </div>
-      )}
     </div>
   );
 };

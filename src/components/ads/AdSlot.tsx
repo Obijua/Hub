@@ -13,6 +13,7 @@ interface AdSlotProps {
 
 export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
   const [config, setConfig] = useState<MonetizationConfig | null>(null);
+  const [isEmpty, setIsEmpty] = useState(false);
   const { profile } = useAuth();
   const isAdmin = profile?.role === 'admin';
 
@@ -96,10 +97,13 @@ export const AdSlot: React.FC<AdSlotProps> = ({ zone, className = '' }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className={`my-8 flex flex-col items-center overflow-hidden ${className}`}
+      className={`${isEmpty ? '' : 'my-8'} flex flex-col items-center overflow-hidden ${className}`}
+      style={isEmpty ? { display: 'none' } : undefined}
     >
-      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Advertisement</span>
-      <AdRenderer adCode={adCode} className="w-full" />
+      {!isEmpty && (
+        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Advertisement</span>
+      )}
+      <AdRenderer adCode={adCode} className="w-full" onEmpty={setIsEmpty} />
     </motion.div>
   );
 };
