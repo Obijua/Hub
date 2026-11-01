@@ -362,6 +362,43 @@ function buildPostDescription(
   return description;
 }
 
+const STATIC_PAGES: Record<string, { title: string; description: string }> = {
+  '/about': {
+    title: 'About Us | Hub & Jobs',
+    description: "Learn about Hub & Jobs, Nigeria's leading career and opportunity portal."
+  },
+  '/contact': {
+    title: 'Contact Us | Hub & Jobs',
+    description: 'Get in touch with the Hub & Jobs team for support, inquiries, or partnerships.'
+  },
+  '/jobs': {
+    get title() {
+      return `Latest Jobs in Nigeria (${new Date().getFullYear()}) | Hub & Jobs`;
+    },
+    description: 'Browse and apply for the latest job openings across Lagos, Abuja, Port Harcourt and remote locations in Nigeria.'
+  },
+  '/blog': {
+    title: 'Career Advice, Job Search Tips & Guides | Hub & Jobs',
+    description: 'Explore expert career advice, CV writing tips, interview guides, and scholarship application tips in Nigeria.'
+  },
+  '/documents': {
+    title: 'Professional CV & Cover Letter Builder | Hub & Jobs',
+    description: 'Create professional ATS-friendly CVs, business plans, proposals, and application bundles in minutes.'
+  },
+  '/documents/cv': {
+    title: 'Online CV Builder | Create a Professional CV | Hub & Jobs',
+    description: 'Build a professional, ATS-friendly CV online in minutes, preview it and download it as a PDF.'
+  },
+  '/privacy-policy': {
+    title: 'Privacy Policy | Hub & Jobs',
+    description: 'Read our privacy policy to understand how we protect your data.'
+  },
+  '/disclaimer': {
+    title: 'Disclaimer | Hub & Jobs',
+    description: 'Read the disclaimer for Hub & Jobs regarding job listings and opportunities.'
+  }
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     return res.status(405).send('Method not allowed');
@@ -409,6 +446,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    if (type === 'static') {
+      let staticPath = (req.query.path as string) || '';
+      if (staticPath && !staticPath.startsWith('/')) staticPath = '/' + staticPath;
+      if (staticPath.length > 1 && staticPath.endsWith('/')) staticPath = staticPath.slice(0, -1);
+
+      const staticMeta = STATIC_PAGES[staticPath];
+      if (!staticMeta) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).send(indexHtml);
+      }
+
+      const title = staticMeta.title;
+      const description = staticMeta.description;
+      const image = 'https://www.hubandjobs.com/og-image.jpg';
+      const canonicalUrl = `https://www.hubandjobs.com${staticPath}`;
+
+      const escapedTitle = escapeHtml(title);
+      const escapedDesc = escapeHtml(description);
+      const escapedImage = escapeHtml(image);
+      const escapedCanonical = escapeHtml(canonicalUrl);
+
+      let html = indexHtml;
+
+      // Remove existing title, meta, canonical, og, twitter tags
+      html = html.replace(/<title\b[^>]*>[\s\S]*?<\/title>/gi, '');
+      html = html.replace(/<meta\b[^>]*\b(?:name|property)=["'](?:description|robots|og:[^"']+|twitter:[^"']+|og:image:[^"']+)["'][^>]*>/gi, '');
+      html = html.replace(/<link\s+rel=["']canonical["'][^>]*\/?>/gi, '');
+
+      const seoTags = `
+  <title>${escapedTitle}</title>
+  <meta name="description" content="${escapedDesc}" />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <link rel="canonical" href="${escapedCanonical}" />
+  <meta property="og:title" content="${escapedTitle}" />
+  <meta property="og:description" content="${escapedDesc}" />
+  <meta property="og:url" content="${escapedCanonical}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="${escapedImage}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapedTitle}" />
+  <meta name="twitter:description" content="${escapedDesc}" />
+  <meta name="twitter:image" content="${escapedImage}" />
+</head>`;
+
+      html = html.replace('</head>', () => seoTags);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+      return res.status(200).send(html);
+    }
+
     const { projectId, apiKey, firestoreDatabaseId } = firebaseConfig;
     const dbId = firestoreDatabaseId || '(default)';
 

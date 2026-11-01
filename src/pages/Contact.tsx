@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
 import { 
   Mail, 
-  MapPin, 
   Phone, 
   Send, 
   MessageCircle, 
@@ -35,202 +33,205 @@ export const Contact = () => {
     toast.success('Message sent successfully! We will get back to you soon.');
   };
 
-  const contactInfo = [
-    {
-      icon: Mail,
-      title: 'Email Us',
-      value: 'contact@hubandjobs.com',
-      description: 'Our support team usually responds within 24 hours.',
-      color: 'bg-blue-50 text-blue-600'
-    },
-    {
-      icon: Phone,
-      title: 'Call Us',
-      value: '+234 (0) 800 HUB JOBS',
-      description: 'Available Mon-Fri, 9am - 5pm WAT.',
-      color: 'bg-amber-50 text-amber-600'
-    },
-    {
-      icon: MessageCircle,
-      title: 'Live Chat',
-      value: 'Telegram Community',
-      description: 'Join our active community for instant updates.',
-      color: 'bg-green-50 text-green-600'
-    }
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-[#EEF2FF] pb-[96px]">
       <SEO 
         title="Contact Us - Hub & Jobs" 
         description="Get in touch with the Hub & Jobs team. We're here to help with your career questions, partnership inquiries, or platform support."
       />
 
-      {/* Hero Section */}
-      <section className="py-20 bg-primary relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-accent rounded-full translate-x-1/2 -translate-y-1/2 blur-3xl"></div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <h1 className="text-4xl md:text-6xl font-black text-white mb-6 tracking-tight">
-              Let's Start a <span className="text-accent">Conversation</span>
-            </h1>
-            <p className="text-xl text-blue-100 max-w-2xl mx-auto leading-relaxed">
-              Have a question, feedback, or a partnership proposal? We'd love to hear from you. 
-              Our team is dedicated to helping you succeed.
-            </p>
-          </motion.div>
-        </div>
-      </section>
+      <div className="max-w-[430px] mx-auto px-4 py-6 space-y-6">
+        {/* Hero Section */}
+        <section className="bg-[#1E3B8B] text-white p-6 rounded-sm shadow-sm text-center">
+          <h1 className="text-2xl font-black text-white mb-2 tracking-tight">
+            Let's Start a <span className="text-[#E8B736]">Conversation</span>
+          </h1>
+          <p className="text-sm text-blue-100 leading-relaxed">
+            Have a question, feedback, or a partnership proposal? We'd love to hear from you. 
+            Our team is dedicated to helping you succeed.
+          </p>
+        </section>
 
-      <section className="py-20 -mt-10 relative z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-3 gap-8 mb-16">
-            {contactInfo.map((info, index) => (
-              <motion.div
-                key={info.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white dark:bg-gray-900 p-8 rounded-[2rem] shadow-xl border border-gray-100 dark:border-gray-800"
-              >
-                <div className={`w-14 h-14 rounded-2xl ${info.color} flex items-center justify-center mb-6`}>
-                  <info.icon size={28} />
-                </div>
-                <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">{info.title}</h3>
-                <div className="text-primary dark:text-accent font-bold mb-3">{info.value}</div>
-                <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                  {info.description}
+        {/* Contact Info Cards */}
+        <section className="space-y-3">
+          {/* Email Us */}
+          <div className="bg-white p-4 rounded-sm shadow-sm border border-slate-200">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-sm bg-blue-50 text-[#1E3B8B] flex items-center justify-center shrink-0">
+                <Mail size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-black text-gray-900 mb-0.5">Email Us</h3>
+                <a 
+                  href="mailto:contact.hubandjobs@gmail.com" 
+                  className="text-[#1E3B8B] font-bold hover:underline block leading-snug"
+                  style={{ fontSize: '16px', overflowWrap: 'anywhere' }}
+                >
+                  contact.hubandjobs@gmail.com
+                </a>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                  Our support team usually responds within 24 hours.
                 </p>
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-12 items-start">
-            {/* Form Section */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="bg-white dark:bg-gray-900 p-8 md:p-12 rounded-[2.5rem] shadow-2xl border border-gray-100 dark:border-gray-800"
-            >
-              {submitted ? (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle2 size={40} />
-                  </div>
-                  <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-4">Message Sent!</h2>
-                  <p className="text-gray-500 mb-8">Thank you for reaching out. We'll get back to you as soon as possible.</p>
-                  <button 
-                    onClick={() => setSubmitted(false)}
-                    className="px-8 py-3 bg-primary text-white font-black rounded-xl hover:bg-blue-800 transition-all"
-                  >
-                    Send Another Message
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Full Name</label>
-                      <input 
-                        required
-                        type="text" 
-                        className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 focus:ring-accent outline-none text-gray-900 dark:text-white" 
-                        placeholder="John Doe" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
-                      <input 
-                        required
-                        type="email" 
-                        className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 focus:ring-accent outline-none text-gray-900 dark:text-white" 
-                        placeholder="john@example.com" 
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Subject</label>
-                    <select className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 focus:ring-accent outline-none text-gray-900 dark:text-white appearance-none">
-                      <option>General Inquiry</option>
-                      <option>Partnership Opportunity</option>
-                      <option>Technical Support</option>
-                      <option>Feedback</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Your Message</label>
-                    <textarea 
-                      required
-                      rows={5} 
-                      className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 focus:ring-accent outline-none text-gray-900 dark:text-white resize-none" 
-                      placeholder="How can we help you today?"
-                    ></textarea>
-                  </div>
-                  <button 
-                    disabled={isSubmitting}
-                    className="w-full py-5 bg-primary text-white font-black rounded-2xl hover:bg-blue-800 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-3 disabled:opacity-70"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Clock className="animate-spin" size={20} />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Send size={20} />
-                        Send Message
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
-            </motion.div>
-
-            {/* FAQ/Info Section */}
-            <div className="space-y-8">
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-accent/10 p-8 rounded-[2.5rem] border border-accent/20"
-              >
-                <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400 mb-4">
-                  <AlertCircle size={24} />
-                  <h3 className="text-xl font-black tracking-tight">Quick Note</h3>
-                </div>
-                <p className="text-amber-900 dark:text-amber-200/70 leading-relaxed font-medium">
-                  If you're inquiring about a specific job post or scholarship, please include the link or title in your message for a faster response.
-                </p>
-              </motion.div>
-
-              <div className="space-y-4">
-                <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-6">Frequently Asked Questions</h3>
-                {[
-                  { q: 'How do I post a job?', a: 'Currently, only verified partners can post directly. Contact our partnership team for more info.' },
-                  { q: 'Is Hub & Jobs free to use?', a: 'Yes! Browsing opportunities is 100% free. We only charge for premium document building services.' },
-                  { q: 'How can I join the Telegram group?', a: 'You can find the link in our navigation menu or footer under "Community".' }
-                ].map((faq, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 + (i * 0.1) }}
-                    className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800"
-                  >
-                    <h4 className="font-black text-gray-900 dark:text-white mb-2">{faq.q}</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{faq.a}</p>
-                  </motion.div>
-                ))}
               </div>
             </div>
           </div>
-        </div>
-      </section>
+
+          {/* Call Us */}
+          <div className="bg-white p-4 rounded-sm shadow-sm border border-slate-200">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-sm bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <Phone size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-black text-gray-900 mb-0.5">Call Us</h3>
+                <div className="flex flex-wrap items-center gap-2 mt-0.5 mb-1">
+                  <a 
+                    href="tel:+2348142114452" 
+                    className="text-sm text-[#1E3B8B] font-bold hover:underline leading-snug"
+                  >
+                    +234 814 211 4452
+                  </a>
+                  <a
+                    href="https://wa.me/2348142114452"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-2 py-0.5 rounded-sm bg-[#E8B736] text-[#1E3B8B] text-xs font-bold hover:bg-amber-400 transition-colors"
+                  >
+                    WhatsApp
+                  </a>
+                </div>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Available Mon-Fri, 9am - 5pm WAT.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Live Chat / Community */}
+          <div className="bg-white p-4 rounded-sm shadow-sm border border-slate-200">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-sm bg-green-50 text-green-600 flex items-center justify-center shrink-0">
+                <MessageCircle size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-black text-gray-900 mb-0.5">Live Chat</h3>
+                <div className="text-sm text-[#1E3B8B] font-bold mb-1">Telegram Community</div>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Join our active community for instant updates.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Message Form */}
+        <section className="bg-white p-5 rounded-sm shadow-sm border border-slate-200">
+          {submitted ? (
+            <div className="text-center py-6">
+              <div className="w-12 h-12 bg-green-100 text-green-600 rounded-sm flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 size={24} />
+              </div>
+              <h2 className="text-xl font-black text-gray-900 mb-2">Message Sent!</h2>
+              <p className="text-xs text-gray-500 mb-4">
+                Thank you for reaching out. We'll get back to you as soon as possible.
+              </p>
+              <button 
+                onClick={() => setSubmitted(false)}
+                className="px-5 py-2.5 bg-[#1E3B8B] text-white font-bold text-sm rounded-sm hover:bg-blue-800 transition-all"
+              >
+                Send Another Message
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <h2 className="text-lg font-black text-gray-900 mb-2">Send us a Message</h2>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Full Name</label>
+                <input 
+                  required
+                  type="text" 
+                  className="w-full px-3 py-2.5 rounded-sm bg-gray-50 border border-slate-200 focus:ring-1 focus:ring-[#1E3B8B] focus:border-[#1E3B8B] outline-none text-sm text-gray-900" 
+                  placeholder="John Doe" 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Email Address</label>
+                <input 
+                  required
+                  type="email" 
+                  className="w-full px-3 py-2.5 rounded-sm bg-gray-50 border border-slate-200 focus:ring-1 focus:ring-[#1E3B8B] focus:border-[#1E3B8B] outline-none text-sm text-gray-900" 
+                  placeholder="john@example.com" 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Subject</label>
+                <select className="w-full px-3 py-2.5 rounded-sm bg-gray-50 border border-slate-200 focus:ring-1 focus:ring-[#1E3B8B] focus:border-[#1E3B8B] outline-none text-sm text-gray-900 appearance-none">
+                  <option>General Inquiry</option>
+                  <option>Partnership Opportunity</option>
+                  <option>Technical Support</option>
+                  <option>Feedback</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Your Message</label>
+                <textarea 
+                  required
+                  rows={4} 
+                  className="w-full px-3 py-2.5 rounded-sm bg-gray-50 border border-slate-200 focus:ring-1 focus:ring-[#1E3B8B] focus:border-[#1E3B8B] outline-none text-sm text-gray-900 resize-none" 
+                  placeholder="How can we help you today?"
+                ></textarea>
+              </div>
+              <button 
+                disabled={isSubmitting}
+                className="w-full py-3 bg-[#1E3B8B] text-white font-bold text-sm rounded-sm hover:bg-blue-800 transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-70"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Clock className="animate-spin" size={16} />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    <span>Send Message</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+        </section>
+
+        {/* Quick Note */}
+        <section className="bg-amber-50 p-4 rounded-sm border border-amber-200">
+          <div className="flex items-center gap-2 text-amber-700 mb-1.5">
+            <AlertCircle size={18} />
+            <h3 className="text-sm font-black">Quick Note</h3>
+          </div>
+          <p className="text-xs text-amber-900 leading-relaxed font-medium">
+            If you're inquiring about a specific job post or scholarship, please include the link or title in your message for a faster response.
+          </p>
+        </section>
+
+        {/* FAQs */}
+        <section className="space-y-3">
+          <h3 className="text-base font-black text-gray-900 px-1">Frequently Asked Questions</h3>
+          {[
+            { q: 'How do I post a job?', a: 'Currently, only verified partners can post directly. Contact our partnership team for more info.' },
+            { q: 'Is Hub & Jobs free to use?', a: 'Yes! Browsing opportunities is 100% free. We only charge for premium document building services.' },
+            { q: 'How can I join the Telegram group?', a: 'You can find the link in our navigation menu or footer under "Community".' }
+          ].map((faq, i) => (
+            <div
+              key={i}
+              className="bg-white p-4 rounded-sm border border-slate-200 shadow-sm"
+            >
+              <h4 className="text-xs font-black text-gray-900 mb-1">{faq.q}</h4>
+              <p className="text-xs text-gray-600 leading-relaxed">{faq.a}</p>
+            </div>
+          ))}
+        </section>
+      </div>
     </div>
   );
 };
+
+export default Contact;

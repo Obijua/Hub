@@ -27,6 +27,7 @@ import {
   Download
 } from 'lucide-react';
 import { DocumentHTML, DocumentPreview, ScaledPreviewWrapper } from '../components/DocumentPreview';
+import AiBusyOverlay from '../components/AiBusyOverlay';
 import { useDocumentPayment } from '../lib/payment';
 import { generateWithGemini } from '../lib/gemini';
 import { toast } from 'sonner';
@@ -49,8 +50,8 @@ const SOFT_SKILLS_OPTIONS = [
 
 const CVBuilder = () => {
   useSeo({
-    title: 'Free ATS CV Builder | Hub & Jobs',
-    description: 'Build a professional, ATS-optimized CV and download it instantly.',
+    title: 'Online CV Builder | Create a Professional CV | Hub & Jobs',
+    description: 'Build a professional, ATS-friendly CV online in minutes, preview it and download it as a PDF.',
     path: '/documents/cv'
   });
   const [step, setStep] = useState(1);
@@ -424,16 +425,29 @@ Certifications: ${formData.certifications}
     if (!formData.fullName) return toast.error("Enter your name first");
     setIsGenerating('titles');
     try {
+      const expSummary = formData.experience && formData.experience.length > 0
+        ? formData.experience
+            .map((e: any) => `${e.jobTitle || 'Role'} at ${e.companyName || 'Company'}`)
+            .filter(Boolean)
+            .join(', ')
+        : 'None';
+
       const prompt = `Suggest 5 professional job titles for a CV based on: 
       Name: ${formData.fullName}
+      Current title: ${formData.professionalTitle || 'None'}
       Location: ${formData.location || 'Nigeria'}
+      Experience: ${expSummary}
       
-      Return ONLY a JSON array of strings. 
+      Do not invent facts. Return ONLY a JSON array of strings. 
       Example: ["Title 1", "Title 2"]
       No markdown, no backticks, no "json" prefix.`;
       const res = await generateWithGemini(prompt);
-      const cleaned = res.replace(/^json/i, '').trim();
+      const cleaned = res.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').replace(/^json/i, '').trim();
       const titles = JSON.parse(cleaned);
+      if (!Array.isArray(titles) || titles.length === 0 || JSON.stringify(titles).includes("Senior Professional")) {
+        toast.error("Failed to suggest titles");
+        return;
+      }
       setSuggestions(prev => ({ ...prev, titles }));
     } catch (err) {
       console.error(err);
@@ -444,19 +458,26 @@ Certifications: ${formData.certifications}
   };
 
   const generateSummary = async () => {
-    if (!formData.professionalTitle) return toast.error("Enter your professional title first");
+    if (!formData.professionalTitle?.trim()) return toast.error("Enter your professional title first");
     setIsGenerating('summary');
     try {
-      const prompt = `Write a powerful 3-sentence professional CV summary for:
-      Title: ${formData.professionalTitle}
-      Location: ${formData.location || 'Nigeria'}
-      Experience: ${formData.experience.map((e: any) => e.jobTitle).join(', ')}
-      Skills: ${[...formData.technicalSkills, ...formData.softSkills].join(', ')}
-      
-      Start directly with the job title.
-      No intro sentence. No explanation. 
-      Return the 3 sentences only.`;
+      const workHistory = formData.experience && formData.experience.length > 0
+        ? formData.experience
+            .map((e: any) => {
+              const years = [e.startDate, e.endDate].filter(Boolean).join(' - ') || 'N/A';
+              return `${e.jobTitle || 'Role'}, ${e.companyName || 'Company'}, ${years}`;
+            })
+            .join('; ')
+        : 'None';
+      const allSkills = [...(formData.technicalSkills || []), ...(formData.softSkills || [])].filter(Boolean).join(', ') || 'None';
+
+      const prompt = `Write a professional summary of 3 to 4 sentences for a CV. Professional title: ${formData.professionalTitle}. Location: ${formData.location || 'None'}. Work history (job title, company, years): ${workHistory}. Skills: ${allSkills}. Use ONLY these facts. Do not invent employers, degrees, numbers, percentages or achievements. Plain text, no bullet points, do not start with 'I'.`;
+
       const summary = await generateWithGemini(prompt);
+      if (!summary || !summary.trim() || summary.includes('Results-driven professional with extensive expertise')) {
+        toast.error("Failed to generate summary");
+        return;
+      }
       setFormData(prev => ({ ...prev, summary }));
       toast.success("Summary generated!");
     } catch (err) {
@@ -474,6 +495,10 @@ Certifications: ${formData.certifications}
       const prompt = `Improve this CV text to be more professional, powerful, and specific: "${currentText}". 
       Keep it concise. Start directly with the content. No intro or explanation.`;
       const improved = await generateWithGemini(prompt);
+      if (!improved || !improved.trim() || improved.includes('Results-oriented professional dedicated to delivering excellence')) {
+        toast.error("Failed to improve text");
+        return;
+      }
       
       if (path === 'experience') {
         const [index, subField] = field.split('.');
@@ -495,17 +520,16 @@ Certifications: ${formData.certifications}
 
   const generateResponsibilities = async (index: number) => {
     const exp = formData.experience[index];
-    if (!exp.jobTitle) return toast.error("Enter job title first");
+    if (!exp || !exp.jobTitle?.trim()) return toast.error("Enter the job title first");
     setIsGenerating(`exp-${index}`);
     try {
-      const prompt = `Write exactly 4 job responsibilities for 
-      a ${exp.jobTitle} at ${exp.companyName || 'a company'} in Nigeria.
+      const prompt = `Write 4 to 5 short lines describing typical responsibilities for this role on a CV. Job title: ${exp.jobTitle}. Company: ${exp.companyName || 'Not specified'}. Period: ${exp.startDate || 'Start'} to ${exp.endDate || 'Present'}. Location: ${exp.location || formData.location || 'Not specified'}. Each line on its own line, starting with an action verb (past tense if the end date is in the past, otherwise present tense). Make the lines specific to the job title. Do not invent numbers, percentages, tools, clients or achievements. Plain text, no bullet symbols.`;
       
-      Format: one responsibility per line.
-      Start each with an action verb.
-      No numbering. No bullets. No intro text.
-      Return the 4 lines only.`;
       const res = await generateWithGemini(prompt);
+      if (!res || !res.trim() || res.includes('Managed key operational projects')) {
+        toast.error("Failed to generate responsibilities");
+        return;
+      }
       updateExperience(index, 'responsibilities', res);
       toast.success("Responsibilities generated!");
     } catch (err) {
@@ -517,16 +541,29 @@ Certifications: ${formData.certifications}
   };
 
   const suggestSkills = async () => {
-    if (!formData.professionalTitle) return toast.error("Enter professional title first");
+    if (!formData.professionalTitle?.trim()) return toast.error("Enter professional title first");
     setIsGenerating('skills');
     try {
+      const expSummary = formData.experience && formData.experience.length > 0
+        ? formData.experience
+            .map((e: any) => `${e.jobTitle || 'Role'} at ${e.companyName || 'Company'}`)
+            .filter(Boolean)
+            .join(', ')
+        : 'None';
+
       const prompt = `Suggest 8 technical and 4 soft skills for a ${formData.professionalTitle}. 
+      Experience: ${expSummary}.
+      Do not invent facts.
       Return ONLY a JSON object with "technical" and "soft" arrays.
       Example: {"technical": ["Skill 1"], "soft": ["Skill 2"]}
       No markdown, no backticks, no "json" prefix.`;
       const res = await generateWithGemini(prompt);
-      const cleaned = res.replace(/^json/i, '').trim();
+      const cleaned = res.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').replace(/^json/i, '').trim();
       const skills = JSON.parse(cleaned);
+      if (!skills || !Array.isArray(skills.technical) || !Array.isArray(skills.soft) || (skills?.technical?.[0] === "Project Management" && skills?.technical?.[1] === "Data Analysis")) {
+        toast.error("Failed to suggest skills");
+        return;
+      }
       setSuggestions(prev => ({ ...prev, skills }));
     } catch (err) {
       console.error(err);
@@ -831,13 +868,18 @@ Certifications: ${formData.certifications}
                           onChange={handleInputChange}
                           placeholder="e.g. Software Engineer"
                           style={{ ...inputStyle, paddingRight: '48px' }}
+                          readOnly={isGenerating === 'titles'}
+                          aria-busy={isGenerating === 'titles'}
                         />
+                        <AiBusyOverlay busy={isGenerating === 'titles'} label="Writing with AI…" />
                         <button 
                           type="button"
                           onClick={suggestTitles}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-primary hover:scale-110 transition-transform"
+                          disabled={isGenerating === 'titles'}
+                          style={{ opacity: isGenerating === 'titles' ? 0.7 : 1 }}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-primary hover:scale-110 transition-transform disabled:pointer-events-none"
                         >
-                          <Sparkles size={20} />
+                          {isGenerating === 'titles' ? <Loader2 size={20} className="animate-spin text-primary" /> : <Sparkles size={20} />}
                         </button>
                       </div>
                     </div>
@@ -932,13 +974,18 @@ Certifications: ${formData.certifications}
                         rows={4}
                         placeholder="A short punchy intro..."
                         style={textareaStyle}
+                        readOnly={isGenerating === 'summary'}
+                        aria-busy={isGenerating === 'summary'}
                       />
+                      <AiBusyOverlay busy={isGenerating === 'summary'} label="Writing with AI…" />
                       <button 
                         type="button"
                         onClick={generateSummary}
-                        className="absolute bottom-3 right-3 p-2 bg-primary text-white rounded-sm shadow-sm"
+                        disabled={isGenerating === 'summary'}
+                        style={{ opacity: isGenerating === 'summary' ? 0.7 : 1 }}
+                        className="absolute bottom-3 right-3 p-2 bg-primary text-white rounded-sm shadow-sm disabled:pointer-events-none"
                       >
-                        <Wand2 size={16} />
+                        {isGenerating === 'summary' ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
                       </button>
                     </div>
                   </div>
@@ -1068,18 +1115,25 @@ Certifications: ${formData.certifications}
                             <button 
                               type="button"
                               onClick={() => generateResponsibilities(index)}
-                              className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1 hover:underline"
+                              disabled={isGenerating === `exp-${index}`}
+                              style={{ opacity: isGenerating === `exp-${index}` ? 0.7 : 1 }}
+                              className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1 hover:underline disabled:pointer-events-none"
                             >
-                              <Sparkles size={10} /> AI Generate
+                              {isGenerating === `exp-${index}` ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} AI Generate
                             </button>
                           </div>
-                          <textarea 
-                            value={exp.responsibilities}
-                            onChange={(e) => updateExperience(index, 'responsibilities', e.target.value)}
-                            rows={4}
-                            placeholder="Describe your achievements..."
-                            style={textareaStyle}
-                          />
+                          <div className="relative">
+                            <textarea 
+                              value={exp.responsibilities}
+                              onChange={(e) => updateExperience(index, 'responsibilities', e.target.value)}
+                              rows={4}
+                              placeholder="Describe your achievements..."
+                              style={textareaStyle}
+                              readOnly={isGenerating === `exp-${index}`}
+                              aria-busy={isGenerating === `exp-${index}`}
+                            />
+                            <AiBusyOverlay busy={isGenerating === `exp-${index}`} label="Writing with AI…" />
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1264,9 +1318,11 @@ Certifications: ${formData.certifications}
                     <button 
                       type="button"
                       onClick={suggestSkills}
-                      className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-sm"
+                      disabled={isGenerating === 'skills'}
+                      style={{ opacity: isGenerating === 'skills' ? 0.7 : 1 }}
+                      className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-sm disabled:pointer-events-none"
                     >
-                      <Sparkles size={12} /> AI Suggest
+                      {isGenerating === 'skills' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} AI Suggest
                     </button>
                   </div>
 

@@ -19,6 +19,7 @@ import {
   Download
 } from 'lucide-react';
 import { DocumentHTML, DocumentPreview } from '../components/DocumentPreview';
+import AiBusyOverlay from '../components/AiBusyOverlay';
 import { useDocumentPayment } from '../lib/payment';
 import html2pdf from 'html2pdf.js';
 import { generateWithGemini } from '../lib/gemini';
@@ -656,7 +657,8 @@ const BusinessPlanBuilder = () => {
                           <button 
                             onClick={generateFullDescription}
                             disabled={isGenerating === 'fullDescription'}
-                            className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:opacity-80 disabled:opacity-50"
+                            style={{ opacity: isGenerating === 'fullDescription' ? 0.7 : 1 }}
+                            className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:opacity-80 disabled:opacity-50 disabled:pointer-events-none"
                           >
                             {isGenerating === 'fullDescription' ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                             Generate with AI
@@ -670,7 +672,10 @@ const BusinessPlanBuilder = () => {
                             rows={4}
                             placeholder="Detailed overview of your business..."
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-primary font-medium text-sm transition-all resize-none"
+                            readOnly={isGenerating === 'fullDescription'}
+                            aria-busy={isGenerating === 'fullDescription'}
                           />
+                          <AiBusyOverlay busy={isGenerating === 'fullDescription'} label="Writing with AI…" />
                         </div>
                       </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -680,7 +685,8 @@ const BusinessPlanBuilder = () => {
                           <button 
                             onClick={generateVisionMission}
                             disabled={isGenerating === 'visionMission'}
-                            className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:opacity-80 disabled:opacity-50"
+                            style={{ opacity: isGenerating === 'visionMission' ? 0.7 : 1 }}
+                            className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:opacity-80 disabled:opacity-50 disabled:pointer-events-none"
                           >
                             {isGenerating === 'visionMission' ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                             Generate with AI
@@ -694,7 +700,10 @@ const BusinessPlanBuilder = () => {
                             rows={2}
                             placeholder="Where do you see the business in 5 years?"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-primary font-medium text-sm transition-all resize-none"
+                            readOnly={isGenerating === 'visionMission'}
+                            aria-busy={isGenerating === 'visionMission'}
                           />
+                          <AiBusyOverlay busy={isGenerating === 'visionMission'} label="Writing with AI…" />
                         </div>
                       </div>
                       <div className="space-y-2">
@@ -707,7 +716,10 @@ const BusinessPlanBuilder = () => {
                             rows={2}
                             placeholder="What is your primary purpose?"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-primary font-medium text-sm transition-all resize-none"
+                            readOnly={isGenerating === 'visionMission'}
+                            aria-busy={isGenerating === 'visionMission'}
                           />
+                          <AiBusyOverlay busy={isGenerating === 'visionMission'} label="Writing with AI…" />
                         </div>
                       </div>
                     </div>
@@ -754,7 +766,8 @@ const BusinessPlanBuilder = () => {
                       <button 
                         onClick={generateMarketAnalysis}
                         disabled={isGenerating === 'market'}
-                        className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:opacity-80 disabled:opacity-50"
+                        style={{ opacity: isGenerating === 'market' ? 0.7 : 1 }}
+                        className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:opacity-80 disabled:opacity-50 disabled:pointer-events-none"
                       >
                         {isGenerating === 'market' ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                         Generate Analysis
@@ -763,36 +776,51 @@ const BusinessPlanBuilder = () => {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Target Market / Customers</label>
-                        <input 
-                          type="text"
-                          name="targetMarket"
-                          value={formData.targetMarket}
-                          onChange={handleInputChange}
-                          placeholder="e.g. Small-scale poultry farmers in Oyo state"
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-primary font-medium text-sm transition-all"
-                        />
+                        <div className="relative">
+                          <input 
+                            type="text"
+                            name="targetMarket"
+                            value={formData.targetMarket}
+                            onChange={handleInputChange}
+                            placeholder="e.g. Small-scale poultry farmers in Oyo state"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-primary font-medium text-sm transition-all"
+                            readOnly={isGenerating === 'market'}
+                            aria-busy={isGenerating === 'market'}
+                          />
+                          <AiBusyOverlay busy={isGenerating === 'market'} label="Writing with AI…" />
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Market Size Estimate</label>
-                        <input 
-                          type="text"
-                          name="marketSize"
-                          value={formData.marketSize}
-                          onChange={handleInputChange}
-                          placeholder="e.g. ₦500 Million annually"
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-primary font-medium text-sm transition-all"
-                        />
+                        <div className="relative">
+                          <input 
+                            type="text"
+                            name="marketSize"
+                            value={formData.marketSize}
+                            onChange={handleInputChange}
+                            placeholder="e.g. ₦500 Million annually"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-primary font-medium text-sm transition-all"
+                            readOnly={isGenerating === 'market'}
+                            aria-busy={isGenerating === 'market'}
+                          />
+                          <AiBusyOverlay busy={isGenerating === 'market'} label="Writing with AI…" />
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Main Competitors</label>
-                        <textarea 
-                          name="competitors"
-                          value={formData.competitors}
-                          onChange={handleInputChange}
-                          rows={2}
-                          placeholder="Who are your main rivals?"
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-primary font-medium text-sm transition-all resize-none"
-                        />
+                        <div className="relative">
+                          <textarea 
+                            name="competitors"
+                            value={formData.competitors}
+                            onChange={handleInputChange}
+                            rows={2}
+                            placeholder="Who are your main rivals?"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-primary font-medium text-sm transition-all resize-none"
+                            readOnly={isGenerating === 'market'}
+                            aria-busy={isGenerating === 'market'}
+                          />
+                          <AiBusyOverlay busy={isGenerating === 'market'} label="Writing with AI…" />
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Your Competitive Advantage</label>
@@ -1019,7 +1047,8 @@ const BusinessPlanBuilder = () => {
                       <button 
                         onClick={enhanceEntirePlan}
                         disabled={isGenerating === 'entire'}
-                        className="w-full py-3 bg-primary/10 text-primary font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-primary/20 transition-colors disabled:opacity-50"
+                        style={{ opacity: isGenerating === 'entire' ? 0.7 : 1 }}
+                        className="w-full py-3 bg-primary/10 text-primary font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                       >
                         {isGenerating === 'entire' ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                         Enhance Entire Plan with AI

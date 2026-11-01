@@ -28,6 +28,38 @@
       "destination": "/api/page?type=job&id=:jobId"
     },
     {
+      "source": "/about",
+      "destination": "/api/page?type=static&path=/about"
+    },
+    {
+      "source": "/contact",
+      "destination": "/api/page?type=static&path=/contact"
+    },
+    {
+      "source": "/jobs",
+      "destination": "/api/page?type=static&path=/jobs"
+    },
+    {
+      "source": "/blog",
+      "destination": "/api/page?type=static&path=/blog"
+    },
+    {
+      "source": "/documents",
+      "destination": "/api/page?type=static&path=/documents"
+    },
+    {
+      "source": "/documents/cv",
+      "destination": "/api/page?type=static&path=/documents/cv"
+    },
+    {
+      "source": "/privacy-policy",
+      "destination": "/api/page?type=static&path=/privacy-policy"
+    },
+    {
+      "source": "/disclaimer",
+      "destination": "/api/page?type=static&path=/disclaimer"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

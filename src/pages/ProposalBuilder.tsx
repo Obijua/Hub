@@ -21,6 +21,7 @@ import {
   Download
 } from 'lucide-react';
 import { DocumentHTML, DocumentPreview } from '../components/DocumentPreview';
+import AiBusyOverlay from '../components/AiBusyOverlay';
 import { useDocumentPayment } from '../lib/payment';
 import html2pdf from 'html2pdf.js';
 import { generateWithGemini } from '../lib/gemini';
@@ -803,7 +804,8 @@ const ProposalBuilder = () => {
                           <button 
                             onClick={generateWhyChooseUs}
                             disabled={isGenerating === 'whyChooseUs'}
-                            className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:opacity-80 disabled:opacity-50"
+                            style={{ opacity: isGenerating === 'whyChooseUs' ? 0.7 : 1 }}
+                            className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1 hover:opacity-80 disabled:opacity-50 disabled:pointer-events-none"
                           >
                             {isGenerating === 'whyChooseUs' ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                             Generate with AI
@@ -817,14 +819,19 @@ const ProposalBuilder = () => {
                             rows={4}
                             placeholder="Explain why your business is the best fit..."
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-primary font-medium text-sm resize-none transition-all"
+                            readOnly={isGenerating === 'whyChooseUs'}
+                            aria-busy={isGenerating === 'whyChooseUs'}
                           />
+                          <AiBusyOverlay busy={isGenerating === 'whyChooseUs'} label="Writing with AI…" />
                           {formData.whyChooseUs && (
                             <button 
                               onClick={() => improveText('whyChooseUs', formData.whyChooseUs)}
-                              className="absolute bottom-3 right-3 p-2 bg-white dark:bg-gray-900 shadow-lg rounded-lg text-primary hover:scale-110 transition-transform"
+                              disabled={isGenerating === 'whyChooseUs'}
+                              style={{ opacity: isGenerating === 'whyChooseUs' ? 0.7 : 1 }}
+                              className="absolute bottom-3 right-3 p-2 bg-white dark:bg-gray-900 shadow-lg rounded-lg text-primary hover:scale-110 transition-transform disabled:pointer-events-none"
                               title="Improve with AI"
                             >
-                              <Wand2 size={14} />
+                              {isGenerating === 'whyChooseUs' ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
                             </button>
                           )}
                         </div>
@@ -839,14 +846,19 @@ const ProposalBuilder = () => {
                             rows={2}
                             placeholder="List key equipment to be used..."
                             className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 focus:ring-2 focus:ring-primary outline-none resize-none"
+                            readOnly={isGenerating === 'equipment'}
+                            aria-busy={isGenerating === 'equipment'}
                           />
+                          <AiBusyOverlay busy={isGenerating === 'equipment'} label="Writing with AI…" />
                           {formData.equipment && (
                             <button 
                               onClick={() => improveText('equipment', formData.equipment)}
-                              className="absolute bottom-3 right-3 p-2 bg-white dark:bg-gray-900 shadow-lg rounded-lg text-primary hover:scale-110 transition-transform"
+                              disabled={isGenerating === 'equipment'}
+                              style={{ opacity: isGenerating === 'equipment' ? 0.7 : 1 }}
+                              className="absolute bottom-3 right-3 p-2 bg-white dark:bg-gray-900 shadow-lg rounded-lg text-primary hover:scale-110 transition-transform disabled:pointer-events-none"
                               title="Improve with AI"
                             >
-                              <Wand2 size={14} />
+                              {isGenerating === 'equipment' ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
                             </button>
                           )}
                         </div>
