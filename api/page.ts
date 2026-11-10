@@ -334,7 +334,12 @@ function buildPostDescription(
   }
   const salRaw = salary ? String(salary).trim() : '';
   if (salRaw) {
-    factItems.push(`Salary: ${salRaw}`);
+    const isStandardSalary = /\d|negotiable|competitive|attractive/i.test(salRaw);
+    if (isStandardSalary) {
+      factItems.push(`Salary: ${salRaw}`);
+    } else {
+      factItems.push(salRaw);
+    }
   }
 
   const facts = factItems.join(' | ');

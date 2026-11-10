@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Share2, MapPin, Briefcase, ExternalLink, MessageCircle, Mail } from 'lucide-react';
-import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import { toast } from 'sonner';
@@ -9,10 +9,47 @@ import AdUnit from '../components/AdUnit';
 import { useSeo, setJsonLd } from '../lib/seo';
 import { incrementViews } from '../lib/posts';
 
+const s = (v: unknown): string => typeof v === 'string' ? v.trim() : '';
+const arr = (v: unknown): any[] => Array.isArray(v) ? v : [];
+
+const safeIsoDate = (val: any): string | null => {
+  if (!val) return null;
+  if (typeof val?.toDate === 'function') {
+    try {
+      const d = val.toDate();
+      return isNaN(d.getTime()) ? null : d.toISOString();
+    } catch {
+      return null;
+    }
+  }
+  if (typeof val?.seconds === 'number') {
+    try {
+      const d = new Date(val.seconds * 1000);
+      return isNaN(d.getTime()) ? null : d.toISOString();
+    } catch {
+      return null;
+    }
+  }
+  if (typeof val?._seconds === 'number') {
+    try {
+      const d = new Date(val._seconds * 1000);
+      return isNaN(d.getTime()) ? null : d.toISOString();
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  } catch {
+    return null;
+  }
+};
+
 const getTags = (postTags: any): string[] => {
   if (!postTags) return [];
   if (Array.isArray(postTags)) {
-    return postTags.map((t: any) => String(t).trim()).filter(Boolean);
+    return postTags.map((t: any) => s(t)).filter(Boolean);
   }
   if (typeof postTags === 'string') {
     return postTags.split(',').map((t: string) => t.trim()).filter(Boolean);
@@ -49,19 +86,18 @@ const stripHtml = (html: string): string => {
 };
 
 const buildPageTitle = (title: string, company: string, location: string): string => {
-  let T = title ? String(title).trim() : 'Opportunity';
-  if (!T) T = 'Opportunity';
+  let T = s(title) || 'Opportunity';
   if (T === T.toUpperCase() && /[A-Z]/.test(T)) {
     T = T.toLowerCase().replace(/(^|\s)\S/g, l => l.toUpperCase());
   }
 
-  let L = location ? String(location).trim() : '';
+  let L = s(location);
   if (L.toLowerCase() === 'nationwide') {
     L = 'Nigeria';
   }
 
-  const hasComp = Boolean(company && String(company).trim() !== '' && company !== 'Featured Employer');
-  const comp = hasComp ? String(company).trim() : '';
+  const hasComp = Boolean(company && company !== 'Featured Employer');
+  const comp = hasComp ? company : '';
   const hasLoc = L !== '';
   const isRemote = L.toLowerCase() === 'remote';
 
@@ -110,17 +146,22 @@ const buildPostDescription = (
   salary?: string
 ): string => {
   const factItems: string[] = [];
-  const locRaw = location ? String(location).trim() : '';
+  const locRaw = s(location);
   if (locRaw) {
     factItems.push(`Location: ${locRaw}`);
   }
-  const jtRaw = jobType ? String(jobType).trim() : '';
+  const jtRaw = s(jobType);
   if (jtRaw) {
     factItems.push(`Job Type: ${jtRaw}`);
   }
-  const salRaw = salary ? String(salary).trim() : '';
+  const salRaw = s(salary);
   if (salRaw) {
-    factItems.push(`Salary: ${salRaw}`);
+    const isStandardSalary = /\d|negotiable|competitive|attractive/i.test(salRaw);
+    if (isStandardSalary) {
+      factItems.push(`Salary: ${salRaw}`);
+    } else {
+      factItems.push(salRaw);
+    }
   }
 
   const facts = factItems.join(' | ');
@@ -167,15 +208,18 @@ export const JobDetailPage = () => {
           const wrapDate = (dateVal: any) => {
             if (!dateVal) return null;
             if (typeof dateVal?.toDate === 'function') return dateVal;
-            const d = new Date(dateVal);
-            const time = isNaN(d.getTime()) ? 0 : d.getTime();
-            const seconds = Math.floor(time / 1000);
-            const nanoseconds = (time % 1000) * 1000000;
+            const time = typeof dateVal.seconds === 'number'
+              ? dateVal.seconds * 1000
+              : (typeof dateVal._seconds === 'number' ? dateVal._seconds * 1000 : new Date(dateVal).getTime());
+            const d = isNaN(time) ? new Date(0) : new Date(time);
+            const validTime = isNaN(time) ? 0 : time;
+            const seconds = Math.floor(validTime / 1000);
+            const nanoseconds = (validTime % 1000) * 1000000;
             return {
               seconds,
               nanoseconds,
               toDate: () => d,
-              toMillis: () => time
+              toMillis: () => validTime
             };
           };
           return {
@@ -195,23 +239,28 @@ export const JobDetailPage = () => {
 
   const [job, setJob] = useState<Post | null>(initialPost);
   const [loading, setLoading] = useState(!initialPost);
-  const [hasApplied, setHasApplied] = useState(false);
+  const [, setHasApplied] = useState(false);
   const [adConfig, setAdConfig] = useState<any>(null);
 
   const seoPath = job?.slug ? `/post/${job.slug}` : (job?.id ? `/jobs/${job.id}` : location.pathname);
   const noindex = job ? !job.slug : false;
 
-  const pAny = job as any;
-  const companyName = 
+  const pAny = (job || {}) as any;
+  const companyName = s(
     pAny?.company || 
     pAny?.companyName || 
     pAny?.employer || 
     pAny?.organizationName || 
-    pAny?.recruiterCompany || '';
+    pAny?.recruiterCompany
+  );
 
-  const locationText = job?.location || '';
+  const locationText = s(job?.location);
+  const title = s(job?.title);
+  const rawDesc = s(job?.description || pAny?.description);
+  const salaryValue = s(job?.salary);
+  const categoryValue = s(job?.category);
 
-  const rawJobType = pAny?.jobType || pAny?.type || '';
+  const rawJobType = s(pAny?.jobType || pAny?.type);
   const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 
     'Internship', 'Contract', 'Freelance'];
   const matchedType = VALID_TYPES.find(t => 
@@ -220,12 +269,12 @@ export const JobDetailPage = () => {
   const jobType = matchedType || rawJobType || '';
 
   const pageTitle = useMemo(() => {
-    return buildPageTitle(job?.title || '', companyName, locationText);
-  }, [job, companyName, locationText]);
+    return buildPageTitle(title, companyName, locationText);
+  }, [title, companyName, locationText]);
 
   const pageDescription = useMemo(() => {
-    return buildPostDescription(job?.description || '', job?.location, jobType, job?.salary) || 'View job details and apply on Hub & Jobs.';
-  }, [job, jobType]);
+    return buildPostDescription(rawDesc, locationText, jobType, salaryValue) || 'View job details and apply on Hub & Jobs.';
+  }, [rawDesc, locationText, jobType, salaryValue]);
 
   useSeo({
     title: pageTitle,
@@ -253,17 +302,12 @@ export const JobDetailPage = () => {
   const jsonLdData = useMemo(() => {
     if (!job) return null;
 
-    const cat = (job.category || '').toLowerCase();
-    const isJob = cat === 'job' || cat === 'internship' || (
-      cat && 
-      !['scholarship', 'free-course', 'udemy-coupon', 'opportunity', 'blog', 'course', 'courses'].includes(cat) &&
-      !cat.includes('scholarship') &&
-      !cat.includes('course') &&
-      !cat.includes('opportunity')
-    );
+    const cat = categoryValue.toLowerCase();
+    // Job vs not a job: default to NOT a job (Article) for any category it does not recognise
+    const isJob = cat === 'job' || cat === 'internship' || cat.includes('job');
 
     if (isJob) {
-      if (!job.title || !job.description || !job.createdAt || !companyName || String(companyName).trim() === '' || companyName === 'Featured Employer' || !job.location || String(job.location).trim() === '') {
+      if (!title || !rawDesc || !job.createdAt || !companyName || companyName === 'Featured Employer' || !locationText) {
         return null;
       }
 
@@ -273,14 +317,14 @@ export const JobDetailPage = () => {
         "directApply": false
       };
 
-      if (job.title) jobPosting.title = job.title;
-      if (job.description) jobPosting.description = job.description;
+      if (title) jobPosting.title = title;
+      if (rawDesc) jobPosting.description = rawDesc;
 
-      const datePosted = job.createdAt?.toDate ? job.createdAt.toDate().toISOString() : (job.createdAt ? new Date(job.createdAt).toISOString() : null);
+      const datePosted = safeIsoDate(job.createdAt);
       if (datePosted) jobPosting.datePosted = datePosted;
 
-      if (pAny.jobType) {
-        const jt = pAny.jobType.toUpperCase().replace(/[- ]/g, '_');
+      if (jobType) {
+        const jt = jobType.toUpperCase().replace(/[- ]/g, '_');
         if (['FULL_TIME', 'PART_TIME', 'CONTRACTOR', 'INTERN', 'TEMPORARY'].includes(jt)) {
           jobPosting.employmentType = jt;
         }
@@ -295,25 +339,25 @@ export const JobDetailPage = () => {
         "@type": "Place",
         "address": {
           "@type": "PostalAddress",
-          "addressLocality": job.location,
+          "addressLocality": locationText,
           "addressCountry": "NG"
         }
       };
 
-      if (job.salary && /\d/.test(job.salary) && !job.salary.toLowerCase().includes('competitive')) {
+      if (salaryValue && /\d/.test(salaryValue) && !salaryValue.toLowerCase().includes('competitive')) {
         jobPosting.baseSalary = {
           "@type": "MonetaryAmount",
           "currency": "NGN",
-          "value": job.salary
+          "value": salaryValue
         };
       }
 
-      const validThrough = job.deadline?.toDate ? job.deadline.toDate().toISOString() : (job.deadline ? new Date(job.deadline).toISOString() : null);
+      const validThrough = safeIsoDate(job.deadline);
       if (validThrough) {
         jobPosting.validThrough = validThrough;
       }
 
-      const isRemote = pAny.isRemote || (job.location && job.location.toLowerCase().includes('remote')) || job.tags?.some((t: string) => t.toLowerCase() === 'remote');
+      const isRemote = Boolean(pAny?.isRemote || locationText.toLowerCase().includes('remote') || arr(pAny?.tags || job.tags).some((t: any) => s(t).toLowerCase() === 'remote'));
       if (isRemote) {
         jobPosting.jobLocationType = "TELECOMMUTE";
         jobPosting.applicantLocationRequirements = {
@@ -329,14 +373,15 @@ export const JobDetailPage = () => {
         "@type": "Article"
       };
 
-      if (job.title) article.headline = job.title;
-      if (job.description) article.description = job.description;
-      if (job.thumbnail) article.image = job.thumbnail;
+      if (title) article.headline = title;
+      if (rawDesc) article.description = rawDesc;
+      const thumb = s(job.thumbnail);
+      if (thumb) article.image = thumb;
 
-      const datePublished = job.createdAt?.toDate ? job.createdAt.toDate().toISOString() : (job.createdAt ? new Date(job.createdAt).toISOString() : null);
+      const datePublished = safeIsoDate(job.createdAt);
       if (datePublished) article.datePublished = datePublished;
 
-      const dateModified = pAny.updatedAt?.toDate ? pAny.updatedAt.toDate().toISOString() : (pAny.updatedAt ? new Date(pAny.updatedAt).toISOString() : null);
+      const dateModified = safeIsoDate(pAny?.updatedAt);
       if (dateModified) article.dateModified = dateModified;
 
       article.publisher = {
@@ -350,7 +395,7 @@ export const JobDetailPage = () => {
 
       return article;
     }
-  }, [job, companyName]);
+  }, [job, companyName, locationText, title, rawDesc, jobType, salaryValue, categoryValue, pAny]);
 
   setJsonLd(job?.id ? `post-jsonld-${job.id}` : 'post-jsonld-placeholder', jsonLdData);
 
@@ -430,7 +475,7 @@ export const JobDetailPage = () => {
 
   const actionButtons = useMemo(() => {
     if (!job) return [];
-    const p = job as any;
+    const p = (job || {}) as any;
     const list: Array<{
       type: 'link' | 'whatsapp' | 'email';
       url: string;
@@ -441,14 +486,14 @@ export const JobDetailPage = () => {
     }> = [];
 
     // 1. Link action
-    const rawExternalLink = typeof p.externalLink === 'string' ? p.externalLink.trim() : '';
+    const rawExternalLink = s(p.externalLink);
     const isLinkEmail = rawExternalLink.includes('@') && !/^https?:\/\//i.test(rawExternalLink);
     if (rawExternalLink && !isLinkEmail) {
       let linkUrl = rawExternalLink;
       if (!/^https?:\/\//i.test(linkUrl)) {
         linkUrl = 'https://' + linkUrl;
       }
-      const linkLabel = (p.externalLinkText || p.ctaText)?.trim() || 'Apply Now';
+      const linkLabel = s(p.externalLinkText || p.ctaText) || 'Apply Now';
       list.push({
         type: 'link',
         url: linkUrl,
@@ -459,14 +504,14 @@ export const JobDetailPage = () => {
     }
 
     // 2. WhatsApp action
-    const rawWa = typeof p.whatsappNumber === 'string' ? p.whatsappNumber.trim() : (p.whatsappNumber ? String(p.whatsappNumber).trim() : '');
+    const rawWa = s(p.whatsappNumber);
     let waDigits = rawWa.replace(/\D/g, '');
     if (waDigits.length === 11 && waDigits.startsWith('0')) {
       waDigits = '234' + waDigits.slice(1);
     }
     if (waDigits.length > 0) {
       const waUrl = `https://wa.me/${waDigits}`;
-      const waLabel = p.whatsappButtonText?.trim() || 'Send CV on WhatsApp';
+      const waLabel = s(p.whatsappButtonText) || 'Send CV on WhatsApp';
       list.push({
         type: 'whatsapp',
         url: waUrl,
@@ -477,11 +522,13 @@ export const JobDetailPage = () => {
     }
 
     // 3. Email action
+    const appEmail = s(p.applicationEmail);
+    const directEmail = s(p.email);
     let emailAddr = '';
-    if (typeof p.applicationEmail === 'string' && p.applicationEmail.includes('@')) {
-      emailAddr = p.applicationEmail.trim();
-    } else if (typeof p.email === 'string' && p.email.includes('@')) {
-      emailAddr = p.email.trim();
+    if (appEmail.includes('@')) {
+      emailAddr = appEmail;
+    } else if (directEmail.includes('@')) {
+      emailAddr = directEmail;
     } else if (isLinkEmail) {
       emailAddr = rawExternalLink;
     }
@@ -489,9 +536,9 @@ export const JobDetailPage = () => {
     if (emailAddr) {
       const cleanEmail = emailAddr.replace(/^mailto:/i, '').trim();
       if (cleanEmail) {
-        const subject = encodeURIComponent(job.title || 'Job Application');
+        const subject = encodeURIComponent(title || 'Job Application');
         const mailtoUrl = `mailto:${cleanEmail}?subject=${subject}`;
-        const emailLabel = p.emailButtonText?.trim() || 'Send On Email';
+        const emailLabel = s(p.emailButtonText) || 'Send On Email';
         list.push({
           type: 'email',
           url: mailtoUrl,
@@ -504,20 +551,21 @@ export const JobDetailPage = () => {
     }
 
     return list;
-  }, [job]);
+  }, [job, title]);
 
-  const displayLocation = job?.location || 'Nigeria';
-  const salaryText = job?.salary || 'Competitive';
-  const requirements = pAny?.requirements || [];
+  const displayLocation = locationText || 'Nigeria';
+  const salaryText = salaryValue || 'Competitive';
+  const requirements = arr(pAny?.requirements || (job as any)?.requirements);
+  const tagsList = getTags(pAny?.tags || job?.tags);
 
   const handleShare = () => {
     const postUrl = job?.slug ? `https://www.hubandjobs.com/post/${job.slug}` : `https://www.hubandjobs.com/jobs/${job?.id || jobId || ''}`;
-    const text = encodeURIComponent(`Check out this job: ${job?.title || 'Job Opening'} at ${companyName || 'Hub & Jobs'}. View on Hub & Jobs: ${postUrl}`);
+    const text = encodeURIComponent(`Check out this job: ${title || 'Job Opening'} at ${companyName || 'Hub & Jobs'}. View on Hub & Jobs: ${postUrl}`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   const cleanHtml = (html: string): string => {
-    if (!html) return '';
+    if (!html || typeof html !== 'string') return '';
     return html
       .replace(/([a-zA-Z])<br\s*\/?>\s*([a-zA-Z])/gi, '$1$2')
       .replace(/&nbsp;/gi, ' ')
@@ -739,12 +787,12 @@ export const JobDetailPage = () => {
 
       {/* Hero Card */}
       <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '16px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', marginBottom: companyName && companyName !== 'Featured Employer' ? '4px' : '16px', lineHeight: '1.3', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{job.title}</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', marginBottom: companyName && companyName !== 'Featured Employer' ? '4px' : '16px', lineHeight: '1.3', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{title}</h2>
         {companyName && companyName !== 'Featured Employer' && (
           <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>{companyName}</p>
         )}
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginBottom: getTags(pAny?.tags || job?.tags).length > 0 ? '8px' : '16px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginBottom: tagsList.length > 0 ? '8px' : '16px' }}>
           <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <MapPin size={12} /> {displayLocation}
           </span>
@@ -755,9 +803,9 @@ export const JobDetailPage = () => {
           )}
         </div>
 
-        {getTags(pAny?.tags || job?.tags).length > 0 && (
+        {tagsList.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', marginBottom: '16px' }}>
-            {getTags(pAny?.tags || job?.tags).map((tag, idx) => (
+            {tagsList.map((tag, idx) => (
               <span key={idx} style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '9999px', padding: '3px 10px', fontSize: '11px', fontWeight: 500 }}>
                 {tag}
               </span>
@@ -773,9 +821,7 @@ export const JobDetailPage = () => {
       {/* Post Content */}
       <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '0 16px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: 'calc(100% - 32px)', boxSizing: 'border-box', overflow: 'hidden' }}>
         <div style={{ width: '100%' }}>
-          {renderDescriptionWithAds(
-            pAny?.description || job?.description || ''
-          )}
+          {renderDescriptionWithAds(rawDesc)}
         </div>
       </div>
 
@@ -815,18 +861,20 @@ export const JobDetailPage = () => {
       )}
 
       {/* Requirements */}
-      {requirements && requirements.length > 0 && (
+      {requirements.length > 0 && (
         <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '0 16px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: 'calc(100% - 32px)', boxSizing: 'border-box' }}>
           <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Requirements</h3>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {Array.isArray(requirements) ? requirements.map((req: string, idx: number) => (
-              <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '2px', backgroundColor: '#1E3B8B', marginTop: '7px', flexShrink: 0 }} />
-                <span style={{ fontSize: '14px', color: '#475569', lineHeight: '1.6', overflowWrap: 'anywhere' }}>{req}</span>
-              </li>
-            )) : (
-              <p style={{ fontSize: '14px', color: '#475569', lineHeight: '1.7', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{requirements}</p>
-            )}
+            {requirements.map((req: any, idx: number) => {
+              const reqText = s(req);
+              if (!reqText) return null;
+              return (
+                <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+                  <div style={{ width: '6px', height: '6px', borderRadius: '2px', backgroundColor: '#1E3B8B', marginTop: '7px', flexShrink: 0 }} />
+                  <span style={{ fontSize: '14px', color: '#475569', lineHeight: '1.6', overflowWrap: 'anywhere' }}>{reqText}</span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

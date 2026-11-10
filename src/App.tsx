@@ -32,6 +32,7 @@ import { NotFound } from './pages/NotFound';
 import { AuthProvider, useAuth } from './components/AuthProvider';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AnnouncementBanner } from './components/AnnouncementBanner';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from './components/ThemeProvider';
@@ -159,71 +160,73 @@ const AppRoutes = () => {
       <Navbar />
       <AdSlot zone="navbar-banner-after" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" />
       <main className="flex-grow">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/jobs" element={<JobsPage />} />
-          <Route path="/jobs/:jobId" element={<JobDetailPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/category/:slug" element={<Category />} />
-          <Route path="/post/:slug" element={<JobDetailPage />} />
-          <Route path="/saved" element={<SavedPosts />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/documents" element={<DocumentsPage />} />
-          <Route path="/documents/cv" element={<CVBuilder />} />
-          <Route path="/documents/proposal" element={<ProposalBuilder />} />
-          <Route path="/documents/business-plan" element={<BusinessPlanBuilder />} />
-          <Route path="/documents/bundle" element={<BundleBuilder />} />
-          <Route path="/my-documents" element={<MyDocuments />} />
-          <Route path="/documents/:type/download/:docId" element={<DocumentDownload />} />
-          <Route path="/documents/success" element={<SuccessPage />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/disclaimer" element={<Disclaimer />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route 
-            path="/admin" 
-            element={
-              <ProtectedRoute>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin/posts" 
-            element={
-              <ProtectedRoute>
-                <AdminPosts />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin/posts/new" 
-            element={
-              <ProtectedRoute>
-                <AdminPostFormPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin/posts/edit/:id" 
-            element={
-              <ProtectedRoute>
-                <AdminPostFormPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/admin/settings" 
-            element={
-              <ProtectedRoute>
-                <AdminSettings />
-              </ProtectedRoute>
-            } 
-          />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <ErrorBoundary resetKey={location.pathname} key={location.pathname}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/jobs/:jobId" element={<JobDetailPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/category/:slug" element={<Category />} />
+            <Route path="/post/:slug" element={<JobDetailPage />} />
+            <Route path="/saved" element={<SavedPosts />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/documents" element={<DocumentsPage />} />
+            <Route path="/documents/cv" element={<CVBuilder />} />
+            <Route path="/documents/proposal" element={<ProposalBuilder />} />
+            <Route path="/documents/business-plan" element={<BusinessPlanBuilder />} />
+            <Route path="/documents/bundle" element={<BundleBuilder />} />
+            <Route path="/my-documents" element={<MyDocuments />} />
+            <Route path="/documents/:type/download/:docId" element={<DocumentDownload />} />
+            <Route path="/documents/success" element={<SuccessPage />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/disclaimer" element={<Disclaimer />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/posts" 
+              element={
+                <ProtectedRoute>
+                  <AdminPosts />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/posts/new" 
+              element={
+                <ProtectedRoute>
+                  <AdminPostFormPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/posts/edit/:id" 
+              element={
+                <ProtectedRoute>
+                  <AdminPostFormPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/settings" 
+              element={
+                <ProtectedRoute>
+                  <AdminSettings />
+                </ProtectedRoute>
+              } 
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
       <AdSlot zone="before-footer" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
