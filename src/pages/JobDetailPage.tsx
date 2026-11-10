@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { ChevronLeft, Share2, MapPin, Briefcase, ExternalLink, MessageCircle, Mail } from 'lucide-react';
 import { doc, getDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import AdUnit from '../components/AdUnit';
 import { useSeo, setJsonLd } from '../lib/seo';
 import { incrementViews } from '../lib/posts';
+import { JobCard } from '../components/JobCard';
 
 const s = (v: unknown): string => typeof v === 'string' ? v.trim() : '';
 const arr = (v: unknown): any[] => Array.isArray(v) ? v : [];
@@ -44,6 +45,23 @@ const safeIsoDate = (val: any): string | null => {
   } catch {
     return null;
   }
+};
+
+const getPostTime = (p: Post) => {
+  if (typeof (p.createdAt as any)?.toMillis === 'function') {
+    return (p.createdAt as any).toMillis();
+  }
+  if (typeof (p.createdAt as any)?.toDate === 'function') {
+    return (p.createdAt as any).toDate().getTime();
+  }
+  if (typeof (p.createdAt as any)?.seconds === 'number') {
+    return (p.createdAt as any).seconds * 1000;
+  }
+  if (p.createdAt) {
+    const t = new Date(p.createdAt as any).getTime();
+    return isNaN(t) ? 0 : t;
+  }
+  return 0;
 };
 
 const getTags = (postTags: any): string[] => {
@@ -241,6 +259,7 @@ export const JobDetailPage = () => {
   const [loading, setLoading] = useState(!initialPost);
   const [, setHasApplied] = useState(false);
   const [adConfig, setAdConfig] = useState<any>(null);
+  const [relatedPosts, setRelatedPosts] = useState<Post[]>([]);
 
   const seoPath = job?.slug ? `/post/${job.slug}` : (job?.id ? `/jobs/${job.id}` : location.pathname);
   const noindex = job ? !job.slug : false;
@@ -473,6 +492,107 @@ export const JobDetailPage = () => {
     checkApplication();
   }, [job]);
 
+  useEffect(() => {
+    if (!job) return;
+    let cancelled = false;
+
+    fetch('/api/posts?limit=60')
+      .then(res => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then(data => {
+        if (cancelled) return;
+        if (data && Array.isArray(data.posts)) {
+          const wrapDate = (dateStr: string) => {
+            if (!dateStr) return null;
+            const d = new Date(dateStr);
+            const time = isNaN(d.getTime()) ? 0 : d.getTime();
+            const seconds = Math.floor(time / 1000);
+            const nanoseconds = (time % 1000) * 1000000;
+            return {
+              seconds,
+              nanoseconds,
+              toDate: () => d,
+              toMillis: () => time
+            };
+          };
+
+          const currentId = job?.id;
+          const currentSlug = job?.slug;
+
+          const transformed = data.posts
+            .filter((p: any) => {
+              if (!p || !p.title || String(p.title).trim() === '') return false;
+              if (currentId && p.id === currentId) return false;
+              if (currentSlug && p.slug === currentSlug) return false;
+              return true;
+            })
+            .map((p: any) => ({
+              ...p,
+              createdAt: wrapDate(p.createdAt),
+              updatedAt: wrapDate(p.updatedAt),
+            })) as Post[];
+
+          setRelatedPosts(transformed);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [job?.id, job?.slug]);
+
+  const displayLocation = locationText || 'Nigeria';
+  const salaryText = salaryValue || 'Competitive';
+  const requirements = arr(pAny?.requirements || (job as any)?.requirements);
+  const tagsList = getTags(pAny?.tags || job?.tags);
+
+  const similarPosts = useMemo(() => {
+    if (!job || relatedPosts.length === 0) return [];
+
+    const currentCat = categoryValue.toLowerCase().replace(/-+$/, '');
+    const currentTags = tagsList.map(t => t.toLowerCase());
+
+    const categoryMatches = relatedPosts
+      .filter(p => {
+        const candCat = s(p.category).toLowerCase().replace(/-+$/, '');
+        return Boolean(currentCat && candCat && currentCat === candCat);
+      })
+      .sort((a, b) => getPostTime(b) - getPostTime(a));
+
+    const result = categoryMatches.slice(0, 4);
+
+    if (result.length < 2 && currentTags.length > 0) {
+      const existingIds = new Set(result.map(p => p.id));
+      const tagMatches = relatedPosts
+        .filter(p => {
+          if (existingIds.has(p.id)) return false;
+          const candTags = getTags((p as any).tags).map(t => t.toLowerCase());
+          return candTags.some(t => currentTags.includes(t));
+        })
+        .sort((a, b) => getPostTime(b) - getPostTime(a));
+
+      for (const p of tagMatches) {
+        if (result.length >= 4) break;
+        result.push(p);
+        existingIds.add(p.id);
+      }
+    }
+
+    return result;
+  }, [job, relatedPosts, categoryValue, tagsList]);
+
+  const morePosts = useMemo(() => {
+    if (!job || relatedPosts.length === 0) return [];
+    const similarIds = new Set(similarPosts.map(p => p.id));
+    return relatedPosts
+      .filter(p => !similarIds.has(p.id))
+      .sort((a, b) => getPostTime(b) - getPostTime(a))
+      .slice(0, 6);
+  }, [job, relatedPosts, similarPosts]);
+
   const actionButtons = useMemo(() => {
     if (!job) return [];
     const p = (job || {}) as any;
@@ -552,11 +672,6 @@ export const JobDetailPage = () => {
 
     return list;
   }, [job, title]);
-
-  const displayLocation = locationText || 'Nigeria';
-  const salaryText = salaryValue || 'Competitive';
-  const requirements = arr(pAny?.requirements || (job as any)?.requirements);
-  const tagsList = getTags(pAny?.tags || job?.tags);
 
   const handleShare = () => {
     const postUrl = job?.slug ? `https://www.hubandjobs.com/post/${job.slug}` : `https://www.hubandjobs.com/jobs/${job?.id || jobId || ''}`;
@@ -884,6 +999,53 @@ export const JobDetailPage = () => {
         <p style={{ fontSize: '17px', fontWeight: 700, color: '#0f172a' }}>Hub <span style={{ color: '#E8B736' }}>&</span> Jobs</p>
         <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '4px', lineHeight: '1.6' }}>Connecting top talent with exciting opportunities across Nigeria and beyond.</p>
       </div>
+
+      {/* Similar Opportunities */}
+      {similarPosts.length > 0 && (
+        <section style={{ margin: '0 16px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '24px 0 12px' }}>
+            Similar opportunities
+          </h3>
+          <div>
+            {similarPosts.map(p => (
+              <div key={p.id} style={{ marginBottom: '12px' }}>
+                <JobCard post={p} showExcerpt={false} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* More Opportunities */}
+      {morePosts.length > 0 && (
+        <section style={{ margin: '0 16px 16px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '24px 0 12px' }}>
+            More opportunities
+          </h3>
+          <div>
+            {morePosts.map(p => (
+              <div key={p.id} style={{ marginBottom: '12px' }}>
+                <JobCard post={p} showExcerpt={false} />
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+            <Link
+              to="/jobs"
+              style={{
+                fontSize: '14px',
+                color: '#1E3B8B',
+                fontWeight: 600,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center'
+              }}
+            >
+              See all opportunities
+            </Link>
+          </div>
+        </section>
+      )}
 
       <div style={{ margin: '0 16px' }}>
         <AdUnit slot="jobdetail-footer" label="Advertisement" />
