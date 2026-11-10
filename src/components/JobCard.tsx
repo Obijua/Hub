@@ -1,13 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Post } from '../types';
-import { MapPin, Briefcase } from 'lucide-react';
+import { MapPin, Briefcase, ChevronRight } from 'lucide-react';
 import { stripHtmlToPlainText } from '../lib/seo';
 import { postPath } from '../lib/utils';
 
 interface JobCardProps {
   post: Post;
   showExcerpt?: boolean;
+  compact?: boolean;
 }
 
 const getExcerpt = (html: string): string => {
@@ -27,7 +28,7 @@ const getTags = (post: any): string[] => {
   return list.filter(t => t.toLowerCase().trim() !== catSlug).slice(0, 3);
 };
 
-export const JobCard = ({ post, showExcerpt = false }: JobCardProps) => {
+export const JobCard = ({ post, showExcerpt = false, compact = false }: JobCardProps) => {
   const navigate = useNavigate();
   const pAny = post as any;
   
@@ -46,6 +47,64 @@ export const JobCard = ({ post, showExcerpt = false }: JobCardProps) => {
     const targetUrl = postPath(post);
     navigate(targetUrl, { state: { job: post } });
   };
+
+  if (compact) {
+    const metaItems = [companyName, locationText, jobType, salaryText]
+      .map(v => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean);
+    const metaLine = metaItems.join(' · ');
+
+    return (
+      <div 
+        onClick={handleClick}
+        style={{
+          backgroundColor: 'white',
+          border: '1px solid #E2E8F0',
+          borderRadius: '2px',
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          cursor: 'pointer',
+          transition: 'all 0.2s'
+        }}
+        className="hover:border-[#1E3B8B]/30 hover:shadow-sm"
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h3 
+            style={{ 
+              fontSize: '16px', 
+              fontWeight: 700, 
+              color: '#0f172a', 
+              lineHeight: '1.3', 
+              margin: 0,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden'
+            }}
+          >
+            {post.title}
+          </h3>
+          {metaLine ? (
+            <p 
+              style={{ 
+                fontSize: '13px', 
+                color: '#64748B', 
+                margin: '4px 0 0',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              {metaLine}
+            </p>
+          ) : null}
+        </div>
+        <ChevronRight size={20} color="#94A3B8" style={{ flexShrink: 0 }} />
+      </div>
+    );
+  }
 
   return (
     <div 

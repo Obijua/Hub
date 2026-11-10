@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useParams } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { Footer } from './components/Footer';
@@ -48,6 +48,11 @@ import { useState, useEffect } from 'react';
 import { doc, getDocFromServer } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import { initGA, trackPageView } from './lib/analytics';
+
+const JobDetailRoute = () => {
+  const { slug, jobId } = useParams<{ slug?: string; jobId?: string }>();
+  return <JobDetailPage key={slug || jobId} />;
+};
 
 const AppRoutes = () => {
   const { profile, loading: authLoading } = useAuth();
@@ -165,10 +170,10 @@ const AppRoutes = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/jobs" element={<JobsPage />} />
-            <Route path="/jobs/:jobId" element={<JobDetailPage />} />
+            <Route path="/jobs/:jobId" element={<JobDetailRoute />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/category/:slug" element={<Category />} />
-            <Route path="/post/:slug" element={<JobDetailPage />} />
+            <Route path="/post/:slug" element={<JobDetailRoute />} />
             <Route path="/saved" element={<SavedPosts />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/documents" element={<DocumentsPage />} />

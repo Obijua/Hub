@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { ChevronLeft, Share2, MapPin, Briefcase, ExternalLink, MessageCircle, Mail } from 'lucide-react';
-import { doc, getDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { Post } from '../types';
 import { toast } from 'sonner';
@@ -9,6 +9,7 @@ import AdUnit from '../components/AdUnit';
 import { useSeo, setJsonLd } from '../lib/seo';
 import { incrementViews } from '../lib/posts';
 import { JobCard } from '../components/JobCard';
+import { postPath } from '../lib/utils';
 
 const s = (v: unknown): string => typeof v === 'string' ? v.trim() : '';
 const arr = (v: unknown): any[] => Array.isArray(v) ? v : [];
@@ -212,6 +213,10 @@ export const JobDetailPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const stateJob = (location.state as { job?: Post })?.job;
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [slug, jobId]);
 
   const embeddedJob = useMemo(() => {
     if (typeof document === 'undefined') return null;
@@ -496,53 +501,87 @@ export const JobDetailPage = () => {
     if (!job) return;
     let cancelled = false;
 
-    fetch('/api/posts?limit=60')
-      .then(res => {
-        if (!res.ok) return null;
-        return res.json();
-      })
-      .then(data => {
-        if (cancelled) return;
-        if (data && Array.isArray(data.posts)) {
-          const wrapDate = (dateStr: string) => {
-            if (!dateStr) return null;
-            const d = new Date(dateStr);
-            const time = isNaN(d.getTime()) ? 0 : d.getTime();
-            const seconds = Math.floor(time / 1000);
-            const nanoseconds = (time % 1000) * 1000000;
-            return {
-              seconds,
-              nanoseconds,
-              toDate: () => d,
-              toMillis: () => time
-            };
-          };
+    const loadRelatedPosts = async () => {
+      const currentId = job?.id;
+      const currentSlug = job?.slug;
 
-          const currentId = job?.id;
-          const currentSlug = job?.slug;
+      const wrapDate = (dateVal: any) => {
+        if (!dateVal) return null;
+        if (typeof dateVal?.toDate === 'function') return dateVal;
+        const d = new Date(dateVal);
+        const time = isNaN(d.getTime()) ? 0 : d.getTime();
+        const seconds = Math.floor(time / 1000);
+        const nanoseconds = (time % 1000) * 1000000;
+        return {
+          seconds,
+          nanoseconds,
+          toDate: () => d,
+          toMillis: () => time
+        };
+      };
 
-          const transformed = data.posts
-            .filter((p: any) => {
-              if (!p || !p.title || String(p.title).trim() === '') return false;
-              if (currentId && p.id === currentId) return false;
-              if (currentSlug && p.slug === currentSlug) return false;
-              return true;
-            })
-            .map((p: any) => ({
-              ...p,
-              createdAt: wrapDate(p.createdAt),
-              updatedAt: wrapDate(p.updatedAt),
-            })) as Post[];
+      const processPosts = (rawPosts: any[]) => {
+        return rawPosts
+          .filter((p: any) => {
+            if (!p || !p.title || String(p.title).trim() === '') return false;
+            if (currentId && p.id === currentId) return false;
+            if (currentSlug && p.slug === currentSlug) return false;
+            return true;
+          })
+          .map((p: any) => ({
+            ...p,
+            createdAt: wrapDate(p.createdAt),
+            updatedAt: wrapDate(p.updatedAt),
+          })) as Post[];
+      };
 
-          setRelatedPosts(transformed);
+      let fetchedPosts: Post[] = [];
+
+      // 1. Try fetch('/api/posts?limit=60') FIRST
+      try {
+        const res = await fetch('/api/posts?limit=60');
+        if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await res.json();
+            if (data && Array.isArray(data.posts) && data.posts.length > 0) {
+              fetchedPosts = processPosts(data.posts);
+            }
+          }
         }
-      })
-      .catch(() => {});
+      } catch {
+        // Fall back to Firestore silently
+      }
+
+      if (cancelled) return;
+
+      // 2. Fall back to Firestore if /api/posts failed, errored, was non-JSON, or returned empty array
+      if (fetchedPosts.length === 0) {
+        try {
+          const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(60));
+          const snap = await getDocs(q);
+          if (cancelled) return;
+          const postsData = snap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          fetchedPosts = processPosts(postsData);
+        } catch {
+          // Silent on all errors
+        }
+      }
+
+      if (!cancelled && fetchedPosts.length > 0) {
+        setRelatedPosts(fetchedPosts);
+      }
+    };
+
+    loadRelatedPosts();
 
     return () => {
       cancelled = true;
     };
-  }, [job?.id, job?.slug]);
+  }, [slug, jobId, job?.id, job?.slug]);
 
   const displayLocation = locationText || 'Nigeria';
   const salaryText = salaryValue || 'Competitive';
@@ -1009,7 +1048,13 @@ export const JobDetailPage = () => {
           <div>
             {similarPosts.map(p => (
               <div key={p.id} style={{ marginBottom: '12px' }}>
-                <JobCard post={p} showExcerpt={false} />
+                <Link
+                  to={postPath(p)}
+                  state={{ job: p }}
+                  style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                >
+                  <JobCard post={p} compact showExcerpt={false} />
+                </Link>
               </div>
             ))}
           </div>
@@ -1025,7 +1070,13 @@ export const JobDetailPage = () => {
           <div>
             {morePosts.map(p => (
               <div key={p.id} style={{ marginBottom: '12px' }}>
-                <JobCard post={p} showExcerpt={false} />
+                <Link
+                  to={postPath(p)}
+                  state={{ job: p }}
+                  style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                >
+                  <JobCard post={p} compact showExcerpt={false} />
+                </Link>
               </div>
             ))}
           </div>
