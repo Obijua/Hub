@@ -285,13 +285,7 @@ export const HomePage = () => {
 
       {/* Section Title */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <h2 className="font-bold text-base text-slate-900">Recent Opportunities</h2>
-          <div className="flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded-sm">
-            <div className="w-1.5 h-1.5 rounded-sm bg-[#1E3B8B] animate-pulse" />
-            <span className="text-xs font-semibold text-[#1E3B8B]">LIVE</span>
-          </div>
-        </div>
+        <h2 className="font-bold text-base text-slate-900">Recent Opportunities</h2>
         <Link to="/jobs" className="text-xs font-semibold text-[#1E3B8B] flex items-center gap-0.5">
           See all <ChevronRight size={14} />
         </Link>
