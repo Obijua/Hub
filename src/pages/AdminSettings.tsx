@@ -40,6 +40,8 @@ import {
   Loader2,
   ChevronRight,
   ChevronLeft,
+  ChevronUp,
+  ChevronDown,
   DollarSign,
   Layout,
   Smartphone,
@@ -273,10 +275,13 @@ export const AdminSettings = () => {
               ) : (
                 <>
                   {activeTab === 'categories' && (
-                    <CategoryManagement 
-                      categories={categories} 
-                      onRefresh={fetchData} 
-                    />
+                    <div className="space-y-10">
+                      <CategoryManagement 
+                        categories={categories} 
+                        onRefresh={fetchData} 
+                      />
+                      <SubcategoriesSettings />
+                    </div>
                   )}
                   {activeTab === 'social' && (
                     <SocialSettings 
@@ -1147,6 +1152,339 @@ const CategoryManagement = ({ categories, onRefresh }: { categories: CategoryCon
               </div>
             </form>
           </motion.div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface SubcategoryItem {
+  name: string;
+  slug: string;
+  order: number;
+  active: boolean;
+  isNew?: boolean;
+}
+
+const SUGGESTED_SUBCATEGORIES = [
+  'Technology',
+  'IT & Software',
+  'Banking & Finance',
+  'Hospitality',
+  'Chef & Catering',
+  'Engineering',
+  'Logistics & Transport',
+  'Marketing & Sales',
+  'Healthcare',
+  'Education',
+  'Admin & HR'
+];
+
+const slugifySubcategory = (text: string): string => {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+};
+
+const makeUniqueSubcategorySlug = (baseSlug: string, otherSlugs: string[]): string => {
+  if (!baseSlug) return '';
+  let candidate = baseSlug;
+  let counter = 1;
+  while (otherSlugs.includes(candidate)) {
+    counter++;
+    candidate = `${baseSlug}-${counter}`;
+  }
+  return candidate;
+};
+
+const SubcategoriesSettings = () => {
+  const [items, setItems] = useState<SubcategoryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchSubcategories = async () => {
+      setLoading(true);
+      try {
+        const snap = await getDoc(doc(db, 'settings', 'subcategories'));
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data?.items)) {
+            const sorted = [...data.items].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+            setItems(
+              sorted.map((item: any, idx: number) => ({
+                name: String(item.name || ''),
+                slug: String(item.slug || slugifySubcategory(item.name || '')),
+                order: typeof item.order === 'number' ? item.order : idx + 1,
+                active: item.active !== false,
+                isNew: false
+              }))
+            );
+          }
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, 'settings/subcategories');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSubcategories();
+  }, []);
+
+  const handleNameChange = (index: number, newName: string) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const current = next[index];
+      if (!current) return prev;
+      if (current.isNew) {
+        const base = slugifySubcategory(newName);
+        const otherSlugs = next.filter((_, idx) => idx !== index).map((it) => it.slug);
+        const uniqueSlug = makeUniqueSubcategorySlug(base, otherSlugs);
+        next[index] = { ...current, name: newName, slug: uniqueSlug };
+      } else {
+        next[index] = { ...current, name: newName };
+      }
+      return next;
+    });
+  };
+
+  const handleToggleActive = (index: number) => {
+    setItems((prev) => {
+      const next = [...prev];
+      if (!next[index]) return prev;
+      next[index] = { ...next[index], active: !next[index].active };
+      return next;
+    });
+  };
+
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    setItems((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(index, 1);
+      next.splice(index - 1, 0, moved);
+      return next.map((it, idx) => ({ ...it, order: idx + 1 }));
+    });
+  };
+
+  const handleMoveDown = (index: number) => {
+    setItems((prev) => {
+      if (index >= prev.length - 1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(index, 1);
+      next.splice(index + 1, 0, moved);
+      return next.map((it, idx) => ({ ...it, order: idx + 1 }));
+    });
+  };
+
+  const handleRemove = (index: number) => {
+    setItems((prev) => {
+      const next = prev.filter((_, idx) => idx !== index);
+      return next.map((it, idx) => ({ ...it, order: idx + 1 }));
+    });
+  };
+
+  const handleAddRow = () => {
+    setItems((prev) => [
+      ...prev,
+      {
+        name: '',
+        slug: '',
+        order: prev.length + 1,
+        active: true,
+        isNew: true
+      }
+    ]);
+  };
+
+  const handleAddSuggested = () => {
+    const suggested: SubcategoryItem[] = SUGGESTED_SUBCATEGORIES.map((name, index) => ({
+      name,
+      slug: slugifySubcategory(name),
+      order: index + 1,
+      active: true,
+      isNew: false
+    }));
+    setItems(suggested);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const cleanItems = items.map((item, idx) => ({
+        name: item.name.trim(),
+        slug: (item.slug || slugifySubcategory(item.name)).trim(),
+        order: idx + 1,
+        active: Boolean(item.active)
+      }));
+      await setDoc(doc(db, 'settings', 'subcategories'), { items: cleanItems });
+      setItems(cleanItems.map((it) => ({ ...it, isNew: false })));
+      toast.success('Settings saved successfully!');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'settings/subcategories');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-sm p-4 sm:p-6 shadow-sm space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-black text-gray-900 dark:text-white">Sub-categories (industries)</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Shown as filter chips on the homepage and as a choice in the post form.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleAddRow}
+          className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 dark:bg-blue-900/20 text-[#1E3B8B] dark:text-blue-300 border border-[#1E3B8B]/20 rounded-sm font-bold text-xs hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Add sub-category</span>
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="py-12 flex flex-col items-center justify-center">
+          <Loader2 className="h-8 w-8 text-[#1E3B8B] animate-spin mb-2" />
+          <p className="text-xs text-gray-500">Loading sub-categories...</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-10 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-sm p-6 space-y-4">
+          <p className="text-sm text-gray-500">No sub-categories created yet.</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={handleAddSuggested}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#E8B736] hover:bg-[#d4a62f] text-slate-900 font-bold text-sm rounded-sm transition-colors shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add suggested sub-categories</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleAddRow}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-[#1E3B8B] text-[#1E3B8B] font-bold text-sm rounded-sm hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add sub-category</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {items.map((item, index) => (
+            <div
+              key={index}
+              className="p-3.5 bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-sm space-y-3 shadow-xs"
+            >
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                  Sub-category Name
+                </label>
+                <input
+                  type="text"
+                  value={item.name}
+                  onChange={(e) => handleNameChange(index, e.target.value)}
+                  placeholder="e.g. Technology"
+                  className="w-full h-12 px-3 text-base bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1E3B8B] focus:border-[#1E3B8B]"
+                />
+                <div className="flex items-center justify-between mt-1 text-[11px] text-gray-500">
+                  <span className="truncate max-w-[240px]">
+                    Slug: <code className="text-gray-700 dark:text-gray-300 font-mono">{item.slug || '—'}</code>
+                  </span>
+                  <span className="text-gray-400 font-mono">#{item.order}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100 dark:border-gray-700/60">
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={item.active}
+                    onChange={() => handleToggleActive(index)}
+                    className="sr-only"
+                  />
+                  <div
+                    className={`w-9 h-5 p-0.5 rounded-sm flex items-center transition-colors ${
+                      item.active ? 'bg-[#1E3B8B]' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 bg-white rounded-sm shadow-xs transition-transform ${
+                        item.active ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                    {item.active ? 'Active' : 'Inactive'}
+                  </span>
+                </label>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleMoveUp(index)}
+                    disabled={index === 0}
+                    aria-label="Move up"
+                    title="Move up"
+                    className="w-9 h-9 flex items-center justify-center border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-200 rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMoveDown(index)}
+                    disabled={index === items.length - 1}
+                    aria-label="Move down"
+                    title="Move down"
+                    className="w-9 h-9 flex items-center justify-center border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-200 rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(index)}
+                    aria-label="Delete"
+                    title="Delete sub-category"
+                    className="w-9 h-9 flex items-center justify-center border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-sm hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <div className="pt-2 flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={handleAddRow}
+              className="w-full flex items-center justify-center gap-2 h-11 border border-dashed border-[#1E3B8B] text-[#1E3B8B] dark:text-blue-300 font-bold text-sm rounded-sm hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add sub-category</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!loading && (
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full h-12 flex items-center justify-center gap-2 bg-[#1E3B8B] hover:bg-[#162c69] text-white font-bold text-base rounded-sm transition-colors shadow-sm disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+            <span>Save sub-categories</span>
+          </button>
         </div>
       )}
     </div>

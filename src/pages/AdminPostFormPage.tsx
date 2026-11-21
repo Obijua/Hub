@@ -70,6 +70,7 @@ export const AdminPostFormPage = () => {
   const [manualThumbnailUrl, setManualThumbnailUrl] = useState('');
   const [showManualUrl, setShowManualUrl] = useState(false);
   const [categories, setCategories] = useState<CategoryConfig[]>([]);
+  const [subcategories, setSubcategories] = useState<{ name: string; slug: string; order: number; active: boolean }[]>([]);
   const [showDraftPrompt, setShowDraftPrompt] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
@@ -79,7 +80,11 @@ export const AdminPostFormPage = () => {
   
   const [formData, setFormData] = useState({
     title: '',
+    postType: 'opportunity' as 'opportunity' | 'blog',
+    blogCategory: 'how-to',
     category: 'job' as Category,
+    subcategory: '',
+    subcategoryName: '',
     description: '',
     externalLink: '',
     deadline: '',
@@ -109,6 +114,7 @@ export const AdminPostFormPage = () => {
 
   useEffect(() => {
     fetchCategories();
+    fetchSubcategories();
     if (isEdit) {
       fetchPost();
     } else {
@@ -142,7 +148,11 @@ export const AdminPostFormPage = () => {
       const data = JSON.parse(savedDraft);
       setFormData({
         title: data.title || '',
+        postType: data.postType === 'blog' ? 'blog' : 'opportunity',
+        blogCategory: data.blogCategory || 'how-to',
         category: data.category || 'job',
+        subcategory: data.subcategory || '',
+        subcategoryName: data.subcategoryName || '',
         description: data.description || '',
         externalLink: data.externalLink || '',
         deadline: data.deadline || '',
@@ -196,21 +206,45 @@ export const AdminPostFormPage = () => {
     }
   };
 
+  const fetchSubcategories = async () => {
+    try {
+      const snap = await getDoc(doc(db, 'settings', 'subcategories'));
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data?.items)) {
+          const activeOnly = data.items
+            .filter((item: any) => item && item.active !== false && item.name && item.slug)
+            .sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+          setSubcategories(activeOnly);
+          return;
+        }
+      }
+      setSubcategories([]);
+    } catch (err) {
+      console.error('Error fetching subcategories:', err);
+      setSubcategories([]);
+    }
+  };
+
   const fetchPost = async () => {
     try {
       const docRef = doc(db, 'posts', id!);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        const data = docSnap.data() as Post;
+        const data = docSnap.data() as any;
         setFormData({
-          title: data.title,
-          category: data.category,
-          description: data.description,
-          externalLink: data.externalLink,
+          title: data.title || '',
+          postType: data.postType === 'blog' ? 'blog' : 'opportunity',
+          blogCategory: data.blogCategory || 'how-to',
+          category: data.category || 'job',
+          subcategory: data.subcategory || '',
+          subcategoryName: data.subcategoryName || '',
+          description: data.description || '',
+          externalLink: data.externalLink || '',
           deadline: data.deadline ? data.deadline.toDate().toISOString().split('T')[0] : '',
-          tags: data.tags.join(', '),
-          isFeatured: data.isFeatured,
-          isActive: data.isActive,
+          tags: Array.isArray(data.tags) ? data.tags.join(', ') : '',
+          isFeatured: Boolean(data.isFeatured),
+          isActive: data.isActive !== false,
           seoTitle: data.seoTitle || '',
           metaDescription: data.metaDescription || '',
           focusKeyword: data.focusKeyword || '',
@@ -290,7 +324,7 @@ export const AdminPostFormPage = () => {
       await addDoc(collection(db, 'notification_queue'), {
         tokens,
         notification: {
-          title: `New ${post.category}: ${post.title}`,
+          title: post.postType === 'blog' ? `New Article: ${post.title}` : `New ${post.category || 'Opportunity'}: ${post.title}`,
           body: post.description
             ? post.description
                 .replace(/<[^>]*>/g, '')
@@ -386,13 +420,11 @@ export const AdminPostFormPage = () => {
         ? existingSlug
         : generateSlug(formData.title?.trim() || "post");
 
-      const postData: any = {
+      const basePostData: any = {
         title: formData.title?.trim() || "Untitled Post",
         slug: finalSlug,
-        category: formData.category || "opportunity",
         description: formData.description || "",
         thumbnail: finalThumbnailURL,
-        externalLink: formData.externalLink?.trim() || "",
         deadline: formData.deadline ? new Date(formData.deadline) : null,
         tags: formData.tags 
           ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) 
@@ -404,16 +436,31 @@ export const AdminPostFormPage = () => {
         metaDescription: formData.metaDescription || "",
         focusKeyword: formData.focusKeyword || "",
         ogImage: finalOgImageURL,
-        location: formData.location || "",
-        salary: formData.salary || "",
         ctaText: formData.ctaText || "",
         ctaColor: formData.ctaColor || "#1E3B8B",
-        whatsappNumber: formData.whatsappNumber?.trim() || "",
-        whatsappButtonText: formData.whatsappButtonText?.trim() || "Send CV on WhatsApp",
-        externalLinkText: formData.externalLinkText?.trim() || "",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
+
+      const postData: any = formData.postType === 'blog'
+        ? {
+            ...basePostData,
+            postType: 'blog',
+            blogCategory: formData.blogCategory || 'how-to',
+          }
+        : {
+            ...basePostData,
+            postType: 'opportunity',
+            category: formData.category || "opportunity",
+            subcategory: formData.subcategory || "",
+            subcategoryName: formData.subcategoryName || "",
+            location: formData.location || "",
+            salary: formData.salary || "",
+            externalLink: formData.externalLink?.trim() || "",
+            externalLinkText: formData.externalLinkText?.trim() || "",
+            whatsappNumber: formData.whatsappNumber?.trim() || "",
+            whatsappButtonText: formData.whatsappButtonText?.trim() || "Send CV on WhatsApp",
+          };
       console.log("Step 4: postData ready", postData);
 
       if (isEdit) {
@@ -647,16 +694,51 @@ export const AdminPostFormPage = () => {
             >
               {/* Main Content */}
               <div className="lg:col-span-2 space-y-8">
+                {/* Post Type Selector */}
+                <div className="bg-white p-4 sm:p-6 rounded-sm border border-gray-100 shadow-sm space-y-3">
+                  <label className="block text-xs font-black text-gray-500 uppercase tracking-widest ml-1">
+                    Post Type
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-sm">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, postType: 'opportunity' })}
+                      className={cn(
+                        "h-12 text-base font-bold rounded-sm transition-all flex items-center justify-center",
+                        formData.postType === 'opportunity'
+                          ? "bg-[#1E3B8B] text-white shadow-sm"
+                          : "text-gray-600 hover:text-gray-900 bg-transparent"
+                      )}
+                    >
+                      Job / Opportunity
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, postType: 'blog' })}
+                      className={cn(
+                        "h-12 text-base font-bold rounded-sm transition-all flex items-center justify-center",
+                        formData.postType === 'blog'
+                          ? "bg-[#1E3B8B] text-white shadow-sm"
+                          : "text-gray-600 hover:text-gray-900 bg-transparent"
+                      )}
+                    >
+                      Blog article
+                    </button>
+                  </div>
+                </div>
+
                 {/* Title & Category */}
                 <div className="bg-white p-4 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
                   <div>
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Opportunity Title</label>
+                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">
+                      {formData.postType === 'blog' ? 'Article Title' : 'Opportunity Title'}
+                    </label>
                     <input
                       type="text"
                       required
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder="e.g. Senior Software Engineer at Google"
+                      placeholder={formData.postType === 'blog' ? "e.g. How to Ace Your Next Job Interview in Nigeria" : "e.g. Senior Software Engineer at Google"}
                       className={cn(
                         "w-full px-4 sm:px-6 py-4 bg-gray-50 border rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900",
                         validationErrors.title ? "border-red-500 focus:ring-red-500" : "border-gray-100"
@@ -667,31 +749,90 @@ export const AdminPostFormPage = () => {
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Category</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {categories.map((cat) => (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, category: cat.slug as Category })}
-                          className={cn(
-                            "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
-                            formData.category === cat.slug
-                              ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
-                              : validationErrors.category 
-                                ? "bg-white text-red-400 border-red-200 hover:border-red-500"
-                                : "bg-white text-gray-400 border-gray-100 hover:border-primary hover:text-primary"
-                          )}
+                  {formData.postType === 'blog' ? (
+                    <div>
+                      <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">
+                        Blog Category <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <select
+                          required
+                          value={formData.blogCategory}
+                          onChange={(e) => setFormData({ ...formData, blogCategory: e.target.value })}
+                          className="w-full h-12 px-4 bg-gray-50 border border-gray-100 rounded-sm outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900 text-base appearance-none"
                         >
-                          {cat.name}
-                        </button>
-                      ))}
+                          <option value="how-to">How-to guides</option>
+                          <option value="grants-news">Grants &amp; scholarships news</option>
+                          <option value="career-development">Career development</option>
+                          <option value="news">News</option>
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                          <ChevronDown className="h-5 w-5 text-gray-400" />
+                        </div>
+                      </div>
                     </div>
-                    {validationErrors.category && (
-                      <p className="mt-2 text-xs font-bold text-red-500 ml-1">{validationErrors.category}</p>
-                    )}
-                  </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Category</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {categories.map((cat) => (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, category: cat.slug as Category })}
+                              className={cn(
+                                "px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                                formData.category === cat.slug
+                                  ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
+                                  : validationErrors.category 
+                                    ? "bg-white text-red-400 border-red-200 hover:border-red-500"
+                                    : "bg-white text-gray-400 border-gray-100 hover:border-primary hover:text-primary"
+                              )}
+                            >
+                              {cat.name}
+                            </button>
+                          ))}
+                        </div>
+                        {validationErrors.category && (
+                          <p className="mt-2 text-xs font-bold text-red-500 ml-1">{validationErrors.category}</p>
+                        )}
+                      </div>
+
+                      {subcategories.length > 0 && (
+                        <div>
+                          <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">
+                            Sub-category (Optional)
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={formData.subcategory}
+                              onChange={(e) => {
+                                const slug = e.target.value;
+                                const found = subcategories.find(s => s.slug === slug);
+                                setFormData({
+                                  ...formData,
+                                  subcategory: slug,
+                                  subcategoryName: found ? found.name : ''
+                                });
+                              }}
+                              className="w-full h-12 px-4 bg-gray-50 border border-gray-100 rounded-sm outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900 text-base appearance-none"
+                            >
+                              <option value="">None</option>
+                              {subcategories.map((sub) => (
+                                <option key={sub.slug} value={sub.slug}>
+                                  {sub.name}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <ChevronDown className="h-5 w-5 text-gray-400" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {/* Description */}
@@ -738,99 +879,103 @@ export const AdminPostFormPage = () => {
 
                 {/* External Link & Tags */}
                 <div className="bg-white p-4 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
-                  <div>
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">External Application Link</label>
-                    <div className="relative">
-                      <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        type="url"
-                        required
-                        value={formData.externalLink}
-                        onChange={(e) => setFormData({ ...formData, externalLink: e.target.value })}
-                        placeholder="https://example.com/apply"
-                        className={cn(
-                          "w-full pl-12 pr-4 py-4 bg-gray-50 border rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900",
-                          validationErrors.externalLink ? "border-red-500 focus:ring-red-500" : "border-gray-100"
+                  {formData.postType === 'opportunity' && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">External Application Link</label>
+                        <div className="relative">
+                          <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                          <input
+                            type="url"
+                            required
+                            value={formData.externalLink}
+                            onChange={(e) => setFormData({ ...formData, externalLink: e.target.value })}
+                            placeholder="https://example.com/apply"
+                            className={cn(
+                              "w-full pl-12 pr-4 py-4 bg-gray-50 border rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900",
+                              validationErrors.externalLink ? "border-red-500 focus:ring-red-500" : "border-gray-100"
+                            )}
+                          />
+                        </div>
+                        {validationErrors.externalLink && (
+                          <p className="mt-2 text-xs font-bold text-red-500 ml-1">{validationErrors.externalLink}</p>
                         )}
-                      />
-                    </div>
-                    {validationErrors.externalLink && (
-                      <p className="mt-2 text-xs font-bold text-red-500 ml-1">{validationErrors.externalLink}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Location (State in Nigeria)</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <select
-                        value={formData.location || ''}
-                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900 appearance-none"
-                      >
-                        <option value="">Select Location</option>
-                        <option value="Remote">Remote (Work from Home)</option>
-                        <option value="Nationwide">Nationwide (Multiple Locations)</option>
-                        <option value="International">International (Outside Nigeria)</option>
-                        <optgroup label="Nigerian States">
-                          <option value="Abia">Abia</option>
-                          <option value="Adamawa">Adamawa</option>
-                          <option value="Akwa Ibom">Akwa Ibom</option>
-                          <option value="Anambra">Anambra</option>
-                          <option value="Bauchi">Bauchi</option>
-                          <option value="Bayelsa">Bayelsa</option>
-                          <option value="Benue">Benue</option>
-                          <option value="Borno">Borno</option>
-                          <option value="Cross River">Cross River</option>
-                          <option value="Delta">Delta</option>
-                          <option value="Ebonyi">Ebonyi</option>
-                          <option value="Edo">Edo</option>
-                          <option value="Ekiti">Ekiti</option>
-                          <option value="Enugu">Enugu</option>
-                          <option value="FCT - Abuja">FCT - Abuja</option>
-                          <option value="Gombe">Gombe</option>
-                          <option value="Imo">Imo</option>
-                          <option value="Jigawa">Jigawa</option>
-                          <option value="Kaduna">Kaduna</option>
-                          <option value="Kano">Kano</option>
-                          <option value="Katsina">Katsina</option>
-                          <option value="Kebbi">Kebbi</option>
-                          <option value="Kogi">Kogi</option>
-                          <option value="Kwara">Kwara</option>
-                          <option value="Lagos">Lagos</option>
-                          <option value="Nasarawa">Nasarawa</option>
-                          <option value="Niger">Niger</option>
-                          <option value="Ogun">Ogun</option>
-                          <option value="Ondo">Ondo</option>
-                          <option value="Osun">Osun</option>
-                          <option value="Oyo">Oyo</option>
-                          <option value="Plateau">Plateau</option>
-                          <option value="Rivers">Rivers</option>
-                          <option value="Sokoto">Sokoto</option>
-                          <option value="Taraba">Taraba</option>
-                          <option value="Yobe">Yobe</option>
-                          <option value="Zamfara">Zamfara</option>
-                        </optgroup>
-                      </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
                       </div>
-                    </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Salary Range (e.g. ₦150k - ₦300k)</label>
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">₦</div>
-                      <input
-                        type="text"
-                        value={formData.salary}
-                        onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                        placeholder="e.g. 200,000 - 350,000"
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900"
-                      />
-                    </div>
-                  </div>
+                      <div>
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Location (State in Nigeria)</label>
+                        <div className="relative">
+                          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                          <select
+                            value={formData.location || ''}
+                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900 appearance-none"
+                          >
+                            <option value="">Select Location</option>
+                            <option value="Remote">Remote (Work from Home)</option>
+                            <option value="Nationwide">Nationwide (Multiple Locations)</option>
+                            <option value="International">International (Outside Nigeria)</option>
+                            <optgroup label="Nigerian States">
+                              <option value="Abia">Abia</option>
+                              <option value="Adamawa">Adamawa</option>
+                              <option value="Akwa Ibom">Akwa Ibom</option>
+                              <option value="Anambra">Anambra</option>
+                              <option value="Bauchi">Bauchi</option>
+                              <option value="Bayelsa">Bayelsa</option>
+                              <option value="Benue">Benue</option>
+                              <option value="Borno">Borno</option>
+                              <option value="Cross River">Cross River</option>
+                              <option value="Delta">Delta</option>
+                              <option value="Ebonyi">Ebonyi</option>
+                              <option value="Edo">Edo</option>
+                              <option value="Ekiti">Ekiti</option>
+                              <option value="Enugu">Enugu</option>
+                              <option value="FCT - Abuja">FCT - Abuja</option>
+                              <option value="Gombe">Gombe</option>
+                              <option value="Imo">Imo</option>
+                              <option value="Jigawa">Jigawa</option>
+                              <option value="Kaduna">Kaduna</option>
+                              <option value="Kano">Kano</option>
+                              <option value="Katsina">Katsina</option>
+                              <option value="Kebbi">Kebbi</option>
+                              <option value="Kogi">Kogi</option>
+                              <option value="Kwara">Kwara</option>
+                              <option value="Lagos">Lagos</option>
+                              <option value="Nasarawa">Nasarawa</option>
+                              <option value="Niger">Niger</option>
+                              <option value="Ogun">Ogun</option>
+                              <option value="Ondo">Ondo</option>
+                              <option value="Osun">Osun</option>
+                              <option value="Oyo">Oyo</option>
+                              <option value="Plateau">Plateau</option>
+                              <option value="Rivers">Rivers</option>
+                              <option value="Sokoto">Sokoto</option>
+                              <option value="Taraba">Taraba</option>
+                              <option value="Yobe">Yobe</option>
+                              <option value="Zamfara">Zamfara</option>
+                            </optgroup>
+                          </select>
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <ChevronDown className="h-5 w-5 text-gray-400" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Salary Range (e.g. ₦150k - ₦300k)</label>
+                        <div className="relative">
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">₦</div>
+                          <input
+                            type="text"
+                            value={formData.salary}
+                            onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                            placeholder="e.g. 200,000 - 350,000"
+                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <div>
                     <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Tags (comma separated)</label>
@@ -949,45 +1094,49 @@ export const AdminPostFormPage = () => {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-gray-50">
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">WhatsApp Number (Optional)</label>
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">WA</div>
-                      <input
-                        type="text"
-                        value={formData.whatsappNumber}
-                        onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
-                        placeholder="e.g. 2348012345678"
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900"
-                      />
-                    </div>
-                    {formData.whatsappNumber && (
-                      <div className="mt-4">
-                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">WhatsApp Button Text</label>
+                  {formData.postType === 'opportunity' && (
+                    <>
+                      <div className="pt-4 border-t border-gray-50">
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">WhatsApp Number (Optional)</label>
+                        <div className="relative">
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">WA</div>
+                          <input
+                            type="text"
+                            value={formData.whatsappNumber}
+                            onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
+                            placeholder="e.g. 2348012345678"
+                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900"
+                          />
+                        </div>
+                        {formData.whatsappNumber && (
+                          <div className="mt-4">
+                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">WhatsApp Button Text</label>
+                            <input
+                              type="text"
+                              value={formData.whatsappButtonText}
+                              onChange={(e) => setFormData({ ...formData, whatsappButtonText: e.target.value })}
+                              placeholder="e.g. Send CV on WhatsApp"
+                              className="w-full px-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-4 border-t border-gray-50">
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Apply Button Text (Optional)</label>
                         <input
                           type="text"
-                          value={formData.whatsappButtonText}
-                          onChange={(e) => setFormData({ ...formData, whatsappButtonText: e.target.value })}
-                          placeholder="e.g. Send CV on WhatsApp"
+                          value={formData.externalLinkText}
+                          onChange={(e) => setFormData({ ...formData, externalLinkText: e.target.value })}
+                          placeholder="e.g. Apply Now, Register Here"
                           className="w-full px-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900"
                         />
+                        <p className="mt-2 text-[10px] text-gray-400 font-medium">
+                          Defaults to "Apply Now" if left empty.
+                        </p>
                       </div>
-                    )}
-                  </div>
-
-                  <div className="pt-4 border-t border-gray-50">
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Apply Button Text (Optional)</label>
-                    <input
-                      type="text"
-                      value={formData.externalLinkText}
-                      onChange={(e) => setFormData({ ...formData, externalLinkText: e.target.value })}
-                      placeholder="e.g. Apply Now, Register Here"
-                      className="w-full px-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all font-bold text-gray-900"
-                    />
-                    <p className="mt-2 text-[10px] text-gray-400 font-medium">
-                      Defaults to "Apply Now" if left empty.
-                    </p>
-                  </div>
+                    </>
+                  )}
 
                   <div className="space-y-4 pt-4">
                     <button
