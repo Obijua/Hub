@@ -1,117 +1,131 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Post, Category, CategoryConfig } from '../types';
-import { useSearchParams, Link } from 'react-router-dom';
-import { Briefcase, Search, Filter, SlidersHorizontal, ChevronDown, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { getAllPosts } from '../lib/posts';
-import { cn } from '../lib/utils';
-import { PostCard } from '../components/PostCard';
-import { AdSlot } from '../components/ads/AdSlot';
-import AdUnit from '../components/AdUnit';
+import { Link } from 'react-router-dom';
+import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { doc, getDoc, getDocs, query, collection, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { MonetizationConfig } from '../types';
-
-import { Sidebar } from '../components/Sidebar';
-import { Sparkles, X as CloseIcon, FileText, ArrowRight } from 'lucide-react';
+import { Post } from '../types';
 import { useSeo } from '../lib/seo';
+import { postPath } from '../lib/utils';
 
-const MobileDocPromo = React.forwardRef<HTMLDivElement, { prices: any }>(({ prices }, ref) => (
-  <div ref={ref} className="lg:hidden my-6 p-4 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl text-white shadow-lg">
-    <div className="flex items-center space-x-2 mb-2">
-      <Sparkles className="h-3 w-3 text-yellow-200" />
-      <span className="text-[9px] font-black uppercase tracking-widest">Premium Tools</span>
-    </div>
-    <h3 className="text-base font-black mb-1">Professional Documents</h3>
-    <p className="text-amber-50 text-[10px] mb-3 opacity-90">Get hired faster with expert CVs and Plans.</p>
-    <div className="grid grid-cols-2 gap-2 mb-3">
-      <div className="p-1.5 bg-white/10 rounded-lg text-center">
-        <div className="text-[9px] opacity-80">CV</div>
-        <div className="font-black text-xs">₦{prices?.cvPrice || '1,500'}</div>
-      </div>
-      <div className="p-1.5 bg-white/10 rounded-lg text-center">
-        <div className="text-[9px] opacity-80">Plan</div>
-        <div className="font-black text-xs">₦{prices?.planPrice || '5,000'}</div>
-      </div>
-    </div>
-    <Link to="/documents" className="block w-full bg-white text-amber-600 text-center font-black py-2.5 rounded-xl text-xs">
-      Build My Document ✨
-    </Link>
-  </div>
-));
+const BLOG_CATEGORIES: Array<{ value: string; label: string }> = [
+  { value: 'how-to', label: 'How-to guides' },
+  { value: 'grants-news', label: 'Grants & scholarships news' },
+  { value: 'career-development', label: 'Career development' },
+  { value: 'news', label: 'News' },
+];
 
-const MobilePopup = ({ prices }: { prices: any }) => {
-  const [isVisible, setIsVisible] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
+const BLOG_CATEGORY_LABELS: Record<string, string> = {
+  'how-to': 'How-to guides',
+  'grants-news': 'Grants & scholarships news',
+  'career-development': 'Career development',
+  'news': 'News',
+};
 
-  useEffect(() => {
-    const hasSeen = sessionStorage.getItem('mobile_doc_popup_seen');
-    if (hasSeen) return;
+const s = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
-    const handleScroll = () => {
-      if (window.scrollY > 600 && !isVisible && !isDismissed) {
-        setIsVisible(true);
-        sessionStorage.setItem('mobile_doc_popup_seen', 'true');
-      }
+const wrapDate = (dateVal: any) => {
+  if (!dateVal) return null;
+  if (typeof dateVal?.toDate === 'function') return dateVal;
+  if (typeof dateVal?.seconds === 'number') {
+    const d = new Date(dateVal.seconds * 1000);
+    return {
+      seconds: dateVal.seconds,
+      nanoseconds: dateVal.nanoseconds || 0,
+      toDate: () => d,
+      toMillis: () => dateVal.seconds * 1000,
     };
+  }
+  const d = new Date(dateVal);
+  const time = isNaN(d.getTime()) ? 0 : d.getTime();
+  const seconds = Math.floor(time / 1000);
+  const nanoseconds = (time % 1000) * 1000000;
+  return {
+    seconds,
+    nanoseconds,
+    toDate: () => d,
+    toMillis: () => time,
+  };
+};
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isVisible, isDismissed]);
+const getPostTime = (p: Post): number => {
+  const ca = (p as any)?.createdAt;
+  if (!ca) return 0;
+  if (typeof ca?.toMillis === 'function') {
+    try {
+      return ca.toMillis();
+    } catch {
+      return 0;
+    }
+  }
+  if (typeof ca?.toDate === 'function') {
+    try {
+      return ca.toDate().getTime();
+    } catch {
+      return 0;
+    }
+  }
+  if (typeof ca?.seconds === 'number') {
+    return ca.seconds * 1000;
+  }
+  if (typeof ca?._seconds === 'number') {
+    return ca._seconds * 1000;
+  }
+  try {
+    const t = new Date(ca).getTime();
+    return isNaN(t) ? 0 : t;
+  } catch {
+    return 0;
+  }
+};
 
-  if (!isVisible || isDismissed) return null;
+const formatDate = (p: Post): string => {
+  const time = getPostTime(p);
+  if (!time) return '';
+  try {
+    const d = new Date(time);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
+};
 
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-[100] p-2 lg:hidden">
-      <motion.div 
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        className="bg-white rounded-t-xl shadow-[0_-10px_40px_-12px_rgba(0,0,0,0.3)] p-4 relative"
-      >
-        <div className="w-8 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
-        
-        <button 
-          onClick={() => setIsDismissed(true)}
-          className="absolute top-3 right-3 p-1.5 bg-gray-50 rounded-full text-gray-400"
-        >
-          <CloseIcon className="h-4 w-4" />
-        </button>
+const extractPlainExcerpt = (html: string): string => {
+  if (!html) return '';
+  let text = String(html)
+    .replace(/<br\s*\/?>|<\/(p|div|li|h[1-6]|ul|ol|blockquote|tr|td|th)>/gi, ' ')
+    .replace(/<[^>]*>?/gm, '');
 
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="p-3 bg-amber-50 rounded-xl">
-            <FileText className="h-6 w-6 text-amber-600" />
-          </div>
-          <div>
-            <h3 className="text-base font-black text-gray-900">Need a Professional CV?</h3>
-            <p className="text-xs text-gray-500">Stand out from the crowd today!</p>
-          </div>
-        </div>
+  text = text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex) => {
+      try {
+        return String.fromCodePoint(parseInt(hex, 16));
+      } catch {
+        return '';
+      }
+    })
+    .replace(/&#([0-9]+);/gi, (_, dec) => {
+      try {
+        return String.fromCodePoint(parseInt(dec, 10));
+      } catch {
+        return '';
+      }
+    })
+    .replace(/&amp;/gi, '&');
 
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="p-2 bg-gray-50 rounded-xl text-center">
-            <div className="text-[9px] text-gray-400 font-bold uppercase">CV</div>
-            <div className="font-black text-primary text-sm">₦{prices?.cvPrice || '1,500'}</div>
-          </div>
-          <div className="p-2 bg-gray-50 rounded-xl text-center">
-            <div className="text-[9px] text-gray-400 font-bold uppercase">Plan</div>
-            <div className="font-black text-primary text-sm">₦{prices?.planPrice || '5,000'}</div>
-          </div>
-          <div className="p-2 bg-gray-50 rounded-xl text-center">
-            <div className="text-[9px] text-gray-400 font-bold uppercase">Bundle</div>
-            <div className="font-black text-primary text-sm">₦{prices?.bundlePrice || '7,500'}</div>
-          </div>
-        </div>
+  text = text
+    .replace(/[\u200B\u200C\u200D\u2060\uFEFF\u00AD]/g, '')
+    .replace(/\u00A0/g, ' ');
 
-        <Link 
-          to="/documents"
-          className="w-full bg-primary text-white font-black py-3 rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-primary/20 text-sm"
-        >
-          <span>Build My Document ✨</span>
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      </motion.div>
-    </div>
-  );
+  return text.replace(/\s+/g, ' ').trim();
 };
 
 export const Blog = () => {
@@ -120,306 +134,307 @@ export const Blog = () => {
     description: 'Explore expert career advice, CV writing tips, interview guides, and scholarship application tips in Nigeria.',
     path: '/blog'
   });
-  const [searchParams, setSearchParams] = useSearchParams();
+
   const [posts, setPosts] = useState<Post[]>([]);
-  const [categories, setCategories] = useState<CategoryConfig[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'deadline'>('newest');
-  const [visibleCount, setVisibleCount] = useState(12);
-  const [monetization, setMonetization] = useState<MonetizationConfig | null>(null);
-  const [docPrices, setDocPrices] = useState<any>(null);
-  
-  const categoryFilter = searchParams.get('category');
-  const searchParam = searchParams.get('search') || '';
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [visibleCount, setVisibleCount] = useState<number>(12);
 
   useEffect(() => {
-    const unsubDocs = onSnapshot(doc(db, 'settings', 'documents'), (doc) => {
-      if (doc.exists()) setDocPrices(doc.data());
-    });
-    return () => unsubDocs();
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const q = query(
-          collection(db, 'categories'),
-          where('isActive', '==', true),
-          orderBy('displayOrder', 'asc')
-        );
-        const snap = await getDocs(q);
-        setCategories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryConfig)));
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-        // Fallback to basic categories if fetch fails
-        setCategories([]);
-      }
-    };
-    fetchCategories();
-  }, []);
-
-  useEffect(() => {
-    const unsubMonetization = onSnapshot(doc(db, 'settings', 'monetization'), (doc) => {
-      if (doc.exists()) setMonetization(doc.data() as MonetizationConfig);
-    });
-    return () => unsubMonetization();
-  }, []);
-
-  useEffect(() => {
-    if (searchParam) {
-      setSearchTerm(searchParam);
-    }
-  }, [searchParam]);
-
-  useEffect(() => {
-    const fetchPosts = async () => {
+    const loadBlogPosts = async () => {
       setLoading(true);
+      let loadedPosts: Post[] = [];
+
+      // 1. Try cached /api/posts?limit=100 first
       try {
-        const fetchedPosts = await getAllPosts({ 
-          category: categoryFilter || undefined,
-          limitCount: 100 // Fetch a larger batch for client-side filtering/sorting
-        });
-        setPosts(fetchedPosts || []);
-      } catch (error) {
-        console.error('Error fetching posts:', error);
-      } finally {
+        const res = await fetch('/api/posts?limit=100');
+        if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await res.json();
+            if (data && Array.isArray(data.posts) && data.posts.length > 0) {
+              loadedPosts = data.posts.map((p: any) => ({
+                ...p,
+                createdAt: wrapDate(p.createdAt),
+                updatedAt: wrapDate(p.updatedAt),
+              })) as Post[];
+            }
+          }
+        }
+      } catch {
+        // Fall back to Firestore
+      }
+
+      if (cancelled) return;
+
+      // 2. Fallback to Firestore query HomePage uses
+      if (loadedPosts.length === 0) {
+        try {
+          const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+          const snap = await getDocs(q);
+          if (cancelled) return;
+          loadedPosts = snap.docs.map(d => ({
+            id: d.id,
+            ...d.data(),
+          })) as Post[];
+        } catch (err) {
+          console.error('Error fetching blog posts:', err);
+        }
+      }
+
+      if (!cancelled) {
+        const onlyBlogs = loadedPosts
+          .filter((p: any) => p && s(p.postType) === 'blog' && s(p.title))
+          .sort((a, b) => getPostTime(b) - getPostTime(a));
+        setPosts(onlyBlogs);
         setLoading(false);
       }
     };
 
-    fetchPosts();
-  }, [categoryFilter]);
+    loadBlogPosts();
 
-  const filteredAndSortedPosts = useMemo(() => {
-    let result = [...posts];
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-    // Client-side Search
-    if (searchTerm) {
-      result = result.filter(post => 
-        post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
+  const availableCategories = useMemo(() => {
+    const used = new Set(
+      posts.map(p => s((p as any)?.blogCategory)).filter(Boolean)
+    );
+    return BLOG_CATEGORIES.filter(cat => used.has(cat.value));
+  }, [posts]);
 
-    // Sorting
-    result.sort((a, b) => {
-      if (sortBy === 'newest') {
-        return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
-      }
-      if (sortBy === 'oldest') {
-        return (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0);
-      }
-      if (sortBy === 'deadline') {
-        const dateA = a.deadline?.toMillis?.() || Infinity;
-        const dateB = b.deadline?.toMillis?.() || Infinity;
-        return dateA - dateB;
-      }
-      return 0;
-    });
+  const filteredPosts = useMemo(() => {
+    if (selectedCategory === 'all') return posts;
+    return posts.filter(p => s((p as any)?.blogCategory) === selectedCategory);
+  }, [posts, selectedCategory]);
 
-    return result;
-  }, [posts, searchTerm, sortBy]);
-
-  const handleCategoryClick = (category: string | null) => {
-    const newParams = new URLSearchParams(searchParams);
-    if (category) {
-      newParams.set('category', category);
-    } else {
-      newParams.delete('category');
-    }
-    setSearchParams(newParams);
-    setVisibleCount(12);
-  };
-
-  const clearFilters = () => {
-    setSearchParams({});
-    setSearchTerm('');
-    setSortBy('newest');
+  const handleSelectCategory = (catValue: string) => {
+    setSelectedCategory(catValue);
     setVisibleCount(12);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header Section */}
-      <div className="bg-primary text-white pt-16 pb-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-            <div className="max-w-xl">
-              <h1 className="text-4xl font-extrabold tracking-tight mb-4">Explore Opportunities</h1>
-              <p className="text-blue-100 text-lg">
-                Find the latest jobs, scholarships, and courses tailored to your career path.
-              </p>
-            </div>
-            
-            <div className="relative w-full md:w-96">
-              <div className="flex p-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-200" />
-                <input
-                  type="text"
-                  placeholder="Search opportunities..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 text-white bg-transparent outline-none placeholder-blue-200"
-                />
-                {searchTerm && (
-                  <button 
-                    onClick={() => setSearchTerm('')}
-                    className="p-2 text-blue-200 hover:text-white"
+    <div style={{ backgroundColor: '#EEF2FF', minHeight: '100vh', paddingBottom: '96px', maxWidth: '430px', margin: '0 auto' }}>
+      {/* Header Band */}
+      <div style={{ backgroundColor: '#1E3B8B', padding: '16px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#ffffff', margin: '0 0 4px 0', lineHeight: '1.25' }}>
+          Blog
+        </h1>
+        <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.85)', margin: 0, lineHeight: '1.4' }}>
+          How-to guides, grants and scholarship news, and career advice.
+        </p>
+      </div>
+
+      {/* Category Filter Chips */}
+      <div
+        className="no-scrollbar"
+        style={{
+          display: 'flex',
+          overflowX: 'auto',
+          gap: '8px',
+          padding: '16px',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => handleSelectCategory('all')}
+          style={{
+            height: '36px',
+            padding: '0 14px',
+            fontSize: '14px',
+            borderRadius: '2px',
+            whiteSpace: 'nowrap',
+            cursor: 'pointer',
+            backgroundColor: selectedCategory === 'all' ? '#1E3B8B' : '#ffffff',
+            color: selectedCategory === 'all' ? '#ffffff' : '#475569',
+            border: selectedCategory === 'all' ? '1px solid #1E3B8B' : '1px solid #E2E8F0',
+            fontWeight: selectedCategory === 'all' ? 600 : 500,
+          }}
+        >
+          All
+        </button>
+        {availableCategories.map((cat) => {
+          const isActive = selectedCategory === cat.value;
+          return (
+            <button
+              key={cat.value}
+              type="button"
+              onClick={() => handleSelectCategory(cat.value)}
+              style={{
+                height: '36px',
+                padding: '0 14px',
+                fontSize: '14px',
+                borderRadius: '2px',
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
+                backgroundColor: isActive ? '#1E3B8B' : '#ffffff',
+                color: isActive ? '#ffffff' : '#475569',
+                border: isActive ? '1px solid #1E3B8B' : '1px solid #E2E8F0',
+                fontWeight: isActive ? 600 : 500,
+              }}
+            >
+              {cat.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Article List */}
+      <div style={{ padding: '0 16px' }}>
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="animate-pulse"
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '2px',
+                  height: '132px',
+                }}
+              />
+            ))}
+          </div>
+        ) : filteredPosts.length === 0 ? (
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #E2E8F0',
+              borderRadius: '2px',
+              padding: '40px 16px',
+              textAlign: 'center',
+            }}
+          >
+            <p style={{ fontSize: '15px', fontWeight: 600, color: '#334155', margin: '0 0 10px 0' }}>
+              No articles yet. Check back soon.
+            </p>
+            <Link
+              to="/jobs"
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#1E3B8B',
+                textDecoration: 'underline',
+              }}
+            >
+              Browse opportunities
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {filteredPosts.slice(0, visibleCount).map((post) => {
+                const blogCatSlug = s((post as any)?.blogCategory);
+                const blogCatLabel = BLOG_CATEGORY_LABELS[blogCatSlug] || blogCatSlug;
+                const excerpt = extractPlainExcerpt(s((post as any)?.description));
+                const dateStr = formatDate(post);
+
+                return (
+                  <Link
+                    key={post.id}
+                    to={postPath(post)}
+                    state={{ job: post }}
+                    style={{
+                      display: 'block',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '2px',
+                      padding: '16px',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                    }}
                   >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+                    {blogCatLabel && (
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          backgroundColor: '#EEF2FF',
+                          color: '#1E3B8B',
+                          borderRadius: '2px',
+                          padding: '2px 8px',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        {blogCatLabel}
+                      </span>
+                    )}
 
-      {/* Filter Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10">
-        <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            {/* Categories */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => handleCategoryClick(null)}
-                className={cn(
-                  "px-5 py-2 rounded-2xl text-sm font-bold transition-all",
-                  !categoryFilter ? "bg-primary text-white shadow-lg" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                )}
-              >
-                All
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => handleCategoryClick(cat.slug)}
-                  className={cn(
-                    "px-5 py-2 rounded-2xl text-sm font-bold transition-all capitalize",
-                    categoryFilter === cat.slug ? "bg-primary text-white shadow-lg" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  )}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-
-            {/* Sort & Stats */}
-            <div className="flex items-center justify-between lg:justify-end gap-4 border-t lg:border-t-0 pt-4 lg:pt-0">
-              <div className="flex items-center text-sm text-gray-500">
-                <SlidersHorizontal className="h-4 w-4 mr-2" />
-                <span className="font-medium mr-2">Sort by:</span>
-                <select 
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-transparent font-bold text-gray-900 outline-none cursor-pointer hover:text-primary transition-colors"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="deadline">Closest Deadline</option>
-                </select>
-              </div>
-              
-              <div className="text-sm font-bold text-primary bg-blue-50 px-4 py-2 rounded-2xl">
-                {filteredAndSortedPosts.length} Results
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          <div className="lg:col-span-2">
-            {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="animate-pulse bg-white rounded-2xl aspect-[16/10] w-full shadow-sm border border-gray-100"></div>
-                ))}
-              </div>
-            ) : filteredAndSortedPosts.length > 0 ? (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                  <AnimatePresence mode="popLayout">
-                    {filteredAndSortedPosts.slice(0, visibleCount).flatMap((post, index) => {
-                      const items = [
-                        <PostCard key={post.id} post={post} />
-                      ];
-                      
-                      // Mobile Doc Promo after every 3rd post
-                      if ((index + 1) % 3 === 0) {
-                        items.push(<MobileDocPromo key={`promo-${post.id}`} prices={docPrices} />);
-                      }
-
-                      if (monetization?.blogAdsEnabled && 
-                          (index + 1) % (monetization.homepageAdFrequency || 5) === 0 &&
-                          (index + 1) / (monetization.homepageAdFrequency || 5) <= (monetization.homepageMaxAds || 3)) {
-                        items.push(
-                          <motion.div 
-                            key={`ad-${post.id}`}
-                            layout
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="col-span-full"
-                          >
-                            <AdSlot zone="between-posts" />
-                          </motion.div>
-                        );
-                      }
-                      
-                      return items;
-                    })}
-                  </AnimatePresence>
-                </div>
-
-                {/* Pagination */}
-                {visibleCount < filteredAndSortedPosts.length && (
-                  <div className="mt-16 text-center">
-                    <button 
-                      onClick={() => setVisibleCount(prev => prev + 12)}
-                      className="px-10 py-4 bg-white text-primary font-bold rounded-2xl border-2 border-primary hover:bg-primary hover:text-white transition-all shadow-lg hover:shadow-primary/20"
+                    <h2
+                      className="line-clamp-3"
+                      style={{
+                        fontSize: '18px',
+                        fontWeight: 700,
+                        color: '#0F172A',
+                        lineHeight: '1.35',
+                        margin: '0 0 6px 0',
+                        overflowWrap: 'anywhere',
+                        wordBreak: 'break-word',
+                      }}
                     >
-                      Load More Opportunities
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-32 bg-white rounded-2xl border border-dashed border-gray-300"
-              >
-                <div className="inline-flex p-6 bg-gray-50 rounded-full mb-6 text-gray-300">
-                  <Briefcase className="h-16 w-16" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900">No opportunities found</h3>
-                <p className="text-gray-600 mt-2 max-w-sm mx-auto">
-                  We couldn't find any opportunities matching your current filters. Try clearing them to see more.
-                </p>
-                <button 
-                  onClick={clearFilters}
-                  className="mt-8 px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-blue-900 transition-all"
+                      {s(post.title)}
+                    </h2>
+
+                    {excerpt && (
+                      <p
+                        className="line-clamp-2"
+                        style={{
+                          fontSize: '14px',
+                          color: '#475569',
+                          lineHeight: '1.5',
+                          margin: '0 0 10px 0',
+                          overflowWrap: 'anywhere',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {excerpt}
+                      </p>
+                    )}
+
+                    {dateStr && (
+                      <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 500 }}>
+                        {dateStr}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+
+            {visibleCount < filteredPosts.length && (
+              <div style={{ marginTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount(prev => prev + 12)}
+                  style={{
+                    width: '100%',
+                    height: '44px',
+                    backgroundColor: '#ffffff',
+                    color: '#1E3B8B',
+                    border: '1px solid #1E3B8B',
+                    borderRadius: '2px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
                 >
-                  Clear All Filters
+                  Show more
                 </button>
-              </motion.div>
+              </div>
             )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="hidden lg:block">
-            <Sidebar />
-          </div>
-        </div>
+          </>
+        )}
       </div>
-
-      {/* Mobile Bottom Sheet Popup */}
-      <MobilePopup prices={docPrices} />
     </div>
   );
 };
+
+export default Blog;

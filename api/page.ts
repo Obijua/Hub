@@ -251,11 +251,11 @@ function stripHtml(html: string, maxLength?: number): string {
 function sanitizeHtml(html: string): string {
   if (!html) return '';
   let s = String(html);
-  s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\/1>/gi, '');
-  s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '');
-  s = s.replace(/\s+on[a-z]+\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '');
-  s = s.replace(/href\s*=\s*(["'])javascript:[^"']*\1/gi, 'href="#"');
-  s = s.replace(/href\s*=\s*javascript:[^\s>]+/gi, 'href="#"');
+  s = s.replace(/<(script|style|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+  s = s.replace(/<\/?(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '');
+  s = s.replace(/([\s/])on[a-z0-9_-]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '$1');
+  s = s.replace(/(href|src|formaction|xlink:href)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, '$1="#"');
+  s = s.replace(/(href|src|formaction|xlink:href)\s*=\s*javascript:[^\s>]+/gi, '$1="#"');
   if (s.length > 20000) {
     s = s.slice(0, 20000);
   }
@@ -544,7 +544,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!docData) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).send(indexHtml);
+        res.setHeader('X-Robots-Tag', 'noindex');
+        return res.status(404).send(indexHtml);
       }
       if (docData.slug && String(docData.slug).trim() !== '') {
         res.setHeader('Location', `https://www.hubandjobs.com/post/${docData.slug}`);
@@ -557,6 +558,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!docData) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
+      if (type === 'post' || type === 'category' || type === 'job') {
+        res.setHeader('X-Robots-Tag', 'noindex');
+        return res.status(404).send(indexHtml);
+      }
       return res.status(200).send(indexHtml);
     }
 
@@ -646,41 +651,85 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     html = html.replace('</head>', () => seoTags);
 
-    // Inject crawler-visible content into <div id="root"></div>
+    // Inject crawler-visible content between <!--hj-static-start--> and <!--hj-static-end-->
     let contentHtml = '';
     try {
+      const BLOG_CATEGORY_LABELS: Record<string, string> = {
+        'how-to': 'How-to guides',
+        'grants-news': 'Grants & scholarships news',
+        'career-development': 'Career development',
+        'news': 'News'
+      };
+
+      const formatPostDate = (val: any): string => {
+        if (!val) return '';
+        try {
+          const d = new Date(val);
+          if (isNaN(d.getTime())) return '';
+          return d.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          });
+        } catch {
+          return '';
+        }
+      };
+
+      let innerHtml = '';
       if ((type === 'post' || type === 'job') && docData) {
         const postTitle = escapeHtml(docData.title || '');
-        const company = docData.company || docData.companyName || docData.employer || docData.organizationName || docData.recruiterCompany || '';
-        const location = docData.location || '';
-        const rawJobType = docData.jobType || docData.type || '';
+        const isBlog = docData.postType === 'blog';
 
-        const metaLineParts = [];
-        if (company) metaLineParts.push(escapeHtml(company));
-        if (location) metaLineParts.push(escapeHtml(location));
-        if (rawJobType) metaLineParts.push(escapeHtml(rawJobType));
-        const metaLine = metaLineParts.join(' • ');
+        const metaParts: string[] = [];
+        if (isBlog) {
+          const rawBlogCat = String(docData.blogCategory || '').trim();
+          const blogCatLabel = BLOG_CATEGORY_LABELS[rawBlogCat] || rawBlogCat;
+          if (blogCatLabel) metaParts.push(escapeHtml(blogCatLabel));
+          const formattedDate = formatPostDate(docData.createdAt || docData.publishedAt || docData.date);
+          if (formattedDate) metaParts.push(escapeHtml(formattedDate));
+        } else {
+          const company = String(docData.company || docData.companyName || docData.employer || docData.organizationName || docData.recruiterCompany || '').trim();
+          const location = String(docData.location || '').trim();
+          const rawJobType = String(docData.jobType || docData.type || '').trim();
+          const salary = String(docData.salary || '').trim();
+          if (company) metaParts.push(escapeHtml(company));
+          if (location) metaParts.push(escapeHtml(location));
+          if (rawJobType) metaParts.push(escapeHtml(rawJobType));
+          if (salary) metaParts.push(escapeHtml(salary));
+        }
+        const metaLine = metaParts.join(' &middot; ');
 
         const sanitizedDesc = sanitizeHtml(docData.description || '');
+        const linksHtml = isBlog
+          ? '<p style="margin-top:24px;font-size:14px"><a href="/jobs" style="color:#1E3B8B;text-decoration:underline">More opportunities</a> &middot; <a href="/blog" style="color:#1E3B8B;text-decoration:underline">More articles</a></p>'
+          : '<p style="margin-top:24px;font-size:14px"><a href="/jobs" style="color:#1E3B8B;text-decoration:underline">More opportunities</a></p>';
 
-        contentHtml = `
-          <article style="font-family:system-ui,sans-serif;padding:16px;max-width:430px;margin:0 auto;color:#0f172a">
-            <h1 style="font-size:22px;font-weight:700;margin-bottom:8px;line-height:1.3">${postTitle}</h1>
-            ${metaLine ? `<p style="font-size:14px;color:#475569;margin-bottom:16px">${metaLine}</p>` : ''}
+        innerHtml = `
+          <article>
+            <h1 style="font-size:22px;font-weight:700;margin:0 0 8px;line-height:1.3">${postTitle}</h1>
+            ${metaLine ? `<p style="font-size:13px;color:#64748B;margin:0 0 16px">${metaLine}</p>` : ''}
             <div style="font-size:15px;line-height:1.6;word-break:break-word">${sanitizedDesc}</div>
-            <p style="margin-top:24px"><a href="/" style="color:#1E3B8B;text-decoration:underline">Hub &amp; Jobs home</a></p>
+            ${linksHtml}
           </article>
         `;
       } else if (type === 'category' && docData) {
-        const catName = escapeHtml(docData.name || slug || 'Category');
-        const catDesc = escapeHtml(docData.description ? stripHtml(docData.description, 155) : `Explore latest ${catName} opportunities, jobs, and updates in Nigeria on Hub & Jobs.`);
+        const rawCatName = String(docData.name || slug || 'Category');
+        const catName = escapeHtml(rawCatName);
+        const catSentence = escapeHtml(
+          docData.description
+            ? stripHtml(docData.description, 155)
+            : `Explore latest ${rawCatName} opportunities, jobs, and updates in Nigeria on Hub & Jobs.`
+        );
 
         let postsListHtml = '';
-        if (catPosts && catPosts.length > 0) {
+        const listPosts = Array.isArray(catPosts) ? catPosts.slice(0, 50) : [];
+        if (listPosts.length > 0) {
           postsListHtml = '<ul style="padding-left:20px;line-height:2">';
-          for (const p of catPosts) {
+          for (const p of listPosts) {
             const pTitle = escapeHtml(p.title || 'Untitled');
-            const pPath = (p.slug && String(p.slug).trim() !== '') ? `/post/${p.slug}` : `/jobs/${p.id}`;
+            const pSlug = p.slug && String(p.slug).trim() !== '' ? String(p.slug).trim() : '';
+            const pPath = escapeHtml(pSlug ? `/post/${encodeURIComponent(pSlug)}` : `/jobs/${encodeURIComponent(String(p.id || ''))}`);
             postsListHtml += `<li><a href="${pPath}" style="color:#1E3B8B;text-decoration:underline">${pTitle}</a></li>`;
           }
           postsListHtml += '</ul>';
@@ -688,14 +737,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           postsListHtml = '<p style="color:#475569">No opportunities found in this category yet.</p>';
         }
 
-        contentHtml = `
-          <div style="font-family:system-ui,sans-serif;padding:16px;max-width:430px;margin:0 auto;color:#0f172a">
-            <h1 style="font-size:22px;font-weight:700;margin-bottom:8px;line-height:1.3">${catName} Opportunities</h1>
-            <p style="font-size:15px;color:#475569;margin-bottom:16px;line-height:1.5">${catDesc}</p>
-            ${postsListHtml}
-            <p style="margin-top:24px"><a href="/" style="color:#1E3B8B;text-decoration:underline">Hub &amp; Jobs home</a></p>
-          </div>
+        innerHtml = `
+          <h1 style="font-size:22px;font-weight:700;margin:0 0 8px;line-height:1.3">${catName}</h1>
+          <p style="font-size:15px;color:#475569;margin:0 0 16px;line-height:1.5">${catSentence}</p>
+          ${postsListHtml}
         `;
+      }
+
+      if (innerHtml) {
+        contentHtml = `<div style="min-height:100vh;background:#EEF2FF;font-family:Inter,system-ui,sans-serif;color:#0f172a"><header style="background:#1E3B8B;padding:12px 16px"><span style="color:#fff;font-size:20px;font-weight:700">Hub <span style="color:#E8B736">&amp;</span> Jobs</span></header><main style="padding:16px;max-width:430px;margin:0 auto">${innerHtml}</main></div>`;
       }
     } catch (contentErr) {
       console.error("Content block generation failed:", contentErr);
@@ -703,7 +753,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (contentHtml) {
-      html = html.replace('<div id="root"></div>', `<div id="root">${contentHtml}</div>`);
+      html = html.replace(/<!--hj-static-start-->[\s\S]*?<!--hj-static-end-->/, () => contentHtml);
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

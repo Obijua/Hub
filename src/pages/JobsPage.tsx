@@ -33,12 +33,13 @@ export const JobsPage = () => {
         ...doc.data()
       })) as Post[];
       
-      const onlyJobs = postsData.filter(p => {
+      const nonBlogPosts = postsData.filter(p => (p as any)?.postType !== 'blog');
+      const onlyJobs = nonBlogPosts.filter(p => {
         const cat = p.category?.toLowerCase() || '';
         const desc = p.description?.toLowerCase() || '';
         return cat.includes('job') || cat.includes('internship') || cat.includes('opportunity') || desc.includes('job') || desc.includes('salary');
       });
-      setPosts(onlyJobs.length > 0 ? onlyJobs : postsData);
+      setPosts(onlyJobs.length > 0 ? onlyJobs : nonBlogPosts);
       setLoading(false);
     }, (error) => {
       console.error("Error fetching jobs:", error);
@@ -57,9 +58,10 @@ export const JobsPage = () => {
 
   const filteredJobs = useMemo(() => {
     let result = posts.filter(job => {
+      if ((job as any)?.postType === 'blog') return false;
       const pAny = job as any;
       const comp = pAny.company || pAny.employer || '';
-      const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchesSearch = (job.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                             comp.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             (job.description && job.description.toLowerCase().includes(searchQuery.toLowerCase()));
       

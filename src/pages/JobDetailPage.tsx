@@ -49,20 +49,49 @@ const safeIsoDate = (val: any): string | null => {
 };
 
 const getPostTime = (p: Post) => {
-  if (typeof (p.createdAt as any)?.toMillis === 'function') {
-    return (p.createdAt as any).toMillis();
+  const ca = (p as any)?.createdAt;
+  if (!ca) return 0;
+  if (typeof ca?.toMillis === 'function') {
+    try { return ca.toMillis(); } catch { return 0; }
   }
-  if (typeof (p.createdAt as any)?.toDate === 'function') {
-    return (p.createdAt as any).toDate().getTime();
+  if (typeof ca?.toDate === 'function') {
+    try { return ca.toDate().getTime(); } catch { return 0; }
   }
-  if (typeof (p.createdAt as any)?.seconds === 'number') {
-    return (p.createdAt as any).seconds * 1000;
+  if (typeof ca?.seconds === 'number') {
+    return ca.seconds * 1000;
   }
-  if (p.createdAt) {
-    const t = new Date(p.createdAt as any).getTime();
+  if (typeof ca?._seconds === 'number') {
+    return ca._seconds * 1000;
+  }
+  try {
+    const t = new Date(ca).getTime();
     return isNaN(t) ? 0 : t;
+  } catch {
+    return 0;
   }
-  return 0;
+};
+
+const BLOG_CATEGORY_LABELS: Record<string, string> = {
+  'how-to': 'How-to guides',
+  'grants-news': 'Grants & scholarships news',
+  'career-development': 'Career development',
+  'news': 'News',
+};
+
+const formatBlogDate = (val: unknown): string => {
+  const iso = safeIsoDate(val);
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
 };
 
 const getTags = (postTags: any): string[] => {
@@ -208,6 +237,18 @@ const buildPostDescription = (
   return description;
 };
 
+const buildBlogDescription = (rawDesc: string): string => {
+  const text = stripHtml(rawDesc || '');
+  if (!text) return '';
+  if (text.length <= 155) return text;
+  let cut = text.slice(0, 155);
+  const lastSpace = cut.lastIndexOf(' ');
+  if (lastSpace > 0) {
+    cut = cut.slice(0, lastSpace);
+  }
+  return cut + '…';
+};
+
 export const JobDetailPage = () => {
   const { jobId, slug } = useParams<{ jobId?: string; slug?: string }>();
   const navigate = useNavigate();
@@ -282,7 +323,12 @@ export const JobDetailPage = () => {
   const title = s(job?.title);
   const rawDesc = s(job?.description || pAny?.description);
   const salaryValue = s(job?.salary);
-  const categoryValue = s(job?.category);
+  const postTypeValue = s(pAny?.postType);
+  const isBlog = postTypeValue === 'blog';
+  const blogCategoryValue = s(pAny?.blogCategory);
+  const categoryValue = s(pAny?.category ?? job?.category);
+  const subcategoryValue = s(pAny?.subcategory);
+  const subcategoryNameValue = s(pAny?.subcategoryName);
 
   const rawJobType = s(pAny?.jobType || pAny?.type);
   const VALID_TYPES = ['Full-time', 'Part-time', 'Remote', 
@@ -293,12 +339,18 @@ export const JobDetailPage = () => {
   const jobType = matchedType || rawJobType || '';
 
   const pageTitle = useMemo(() => {
+    if (isBlog) {
+      return `${title || 'Blog'} | Hub & Jobs`;
+    }
     return buildPageTitle(title, companyName, locationText);
-  }, [title, companyName, locationText]);
+  }, [isBlog, title, companyName, locationText]);
 
   const pageDescription = useMemo(() => {
+    if (isBlog) {
+      return buildBlogDescription(rawDesc) || 'Read career guides and articles on Hub & Jobs.';
+    }
     return buildPostDescription(rawDesc, locationText, jobType, salaryValue) || 'View job details and apply on Hub & Jobs.';
-  }, [rawDesc, locationText, jobType, salaryValue]);
+  }, [isBlog, rawDesc, locationText, jobType, salaryValue]);
 
   useSeo({
     title: pageTitle,
@@ -325,6 +377,41 @@ export const JobDetailPage = () => {
 
   const jsonLdData = useMemo(() => {
     if (!job) return null;
+
+    if (isBlog) {
+      const blogPosting: any = {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting"
+      };
+
+      if (title) blogPosting.headline = title;
+      const plainDesc = buildBlogDescription(rawDesc);
+      if (plainDesc) blogPosting.description = plainDesc;
+      const thumb = s(job.thumbnail);
+      if (thumb) blogPosting.image = thumb;
+
+      const datePublished = safeIsoDate(job.createdAt);
+      if (datePublished) blogPosting.datePublished = datePublished;
+
+      const dateModified = safeIsoDate(pAny?.updatedAt);
+      if (dateModified) blogPosting.dateModified = dateModified;
+
+      blogPosting.author = {
+        "@type": "Organization",
+        "name": "Hub & Jobs"
+      };
+
+      blogPosting.publisher = {
+        "@type": "Organization",
+        "name": "Hub & Jobs",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://www.hubandjobs.com/logo.png"
+        }
+      };
+
+      return blogPosting;
+    }
 
     const cat = categoryValue.toLowerCase();
     // Job vs not a job: default to NOT a job (Article) for any category it does not recognise
@@ -381,7 +468,7 @@ export const JobDetailPage = () => {
         jobPosting.validThrough = validThrough;
       }
 
-      const isRemote = Boolean(pAny?.isRemote || locationText.toLowerCase().includes('remote') || arr(pAny?.tags || job.tags).some((t: any) => s(t).toLowerCase() === 'remote'));
+      const isRemote = Boolean(pAny?.isRemote || locationText.toLowerCase().includes('remote') || arr(pAny?.tags ?? job.tags).some((t: any) => s(t).toLowerCase() === 'remote'));
       if (isRemote) {
         jobPosting.jobLocationType = "TELECOMMUTE";
         jobPosting.applicantLocationRequirements = {
@@ -419,7 +506,7 @@ export const JobDetailPage = () => {
 
       return article;
     }
-  }, [job, companyName, locationText, title, rawDesc, jobType, salaryValue, categoryValue, pAny]);
+  }, [job, isBlog, companyName, locationText, title, rawDesc, jobType, salaryValue, categoryValue, subcategoryValue, subcategoryNameValue, pAny]);
 
   setJsonLd(job?.id ? `post-jsonld-${job.id}` : 'post-jsonld-placeholder', jsonLdData);
 
@@ -502,8 +589,8 @@ export const JobDetailPage = () => {
     let cancelled = false;
 
     const loadRelatedPosts = async () => {
-      const currentId = job?.id;
-      const currentSlug = job?.slug;
+      const currentId = s(job?.id);
+      const currentSlug = s(job?.slug);
 
       const wrapDate = (dateVal: any) => {
         if (!dateVal) return null;
@@ -521,11 +608,11 @@ export const JobDetailPage = () => {
       };
 
       const processPosts = (rawPosts: any[]) => {
-        return rawPosts
+        return arr(rawPosts)
           .filter((p: any) => {
-            if (!p || !p.title || String(p.title).trim() === '') return false;
-            if (currentId && p.id === currentId) return false;
-            if (currentSlug && p.slug === currentSlug) return false;
+            if (!p || !s(p.title)) return false;
+            if (currentId && s(p.id) === currentId) return false;
+            if (currentSlug && s(p.slug) === currentSlug) return false;
             return true;
           })
           .map((p: any) => ({
@@ -585,30 +672,36 @@ export const JobDetailPage = () => {
 
   const displayLocation = locationText || 'Nigeria';
   const salaryText = salaryValue || 'Competitive';
-  const requirements = arr(pAny?.requirements || (job as any)?.requirements);
-  const tagsList = getTags(pAny?.tags || job?.tags);
+  const requirements = arr(pAny?.requirements ?? (job as any)?.requirements);
+  const tagsList = getTags(pAny?.tags ?? job?.tags);
+
+  const nonBlogRelated = useMemo(() => {
+    return relatedPosts.filter(p => s((p as any)?.postType) !== 'blog');
+  }, [relatedPosts]);
 
   const similarPosts = useMemo(() => {
-    if (!job || relatedPosts.length === 0) return [];
+    if (!job || isBlog || nonBlogRelated.length === 0) return [];
 
-    const currentCat = categoryValue.toLowerCase().replace(/-+$/, '');
-    const currentTags = tagsList.map(t => t.toLowerCase());
+    const currentCat = s(categoryValue).toLowerCase().replace(/-+$/, '');
+    const currentTags = tagsList.map(t => s(t).toLowerCase()).filter(Boolean);
 
-    const categoryMatches = relatedPosts
-      .filter(p => {
-        const candCat = s(p.category).toLowerCase().replace(/-+$/, '');
-        return Boolean(currentCat && candCat && currentCat === candCat);
-      })
-      .sort((a, b) => getPostTime(b) - getPostTime(a));
+    const categoryMatches = currentCat
+      ? nonBlogRelated
+          .filter(p => {
+            const candCat = s((p as any)?.category).toLowerCase().replace(/-+$/, '');
+            return Boolean(candCat && currentCat === candCat);
+          })
+          .sort((a, b) => getPostTime(b) - getPostTime(a))
+      : [];
 
     const result = categoryMatches.slice(0, 4);
 
     if (result.length < 2 && currentTags.length > 0) {
-      const existingIds = new Set(result.map(p => p.id));
-      const tagMatches = relatedPosts
+      const existingIds = new Set(result.map(p => s(p.id)));
+      const tagMatches = nonBlogRelated
         .filter(p => {
-          if (existingIds.has(p.id)) return false;
-          const candTags = getTags((p as any).tags).map(t => t.toLowerCase());
+          if (existingIds.has(s(p.id))) return false;
+          const candTags = getTags((p as any)?.tags).map(t => s(t).toLowerCase()).filter(Boolean);
           return candTags.some(t => currentTags.includes(t));
         })
         .sort((a, b) => getPostTime(b) - getPostTime(a));
@@ -616,24 +709,45 @@ export const JobDetailPage = () => {
       for (const p of tagMatches) {
         if (result.length >= 4) break;
         result.push(p);
-        existingIds.add(p.id);
+        existingIds.add(s(p.id));
       }
     }
 
     return result;
-  }, [job, relatedPosts, categoryValue, tagsList]);
+  }, [job, isBlog, nonBlogRelated, categoryValue, tagsList]);
 
   const morePosts = useMemo(() => {
-    if (!job || relatedPosts.length === 0) return [];
-    const similarIds = new Set(similarPosts.map(p => p.id));
-    return relatedPosts
-      .filter(p => !similarIds.has(p.id))
+    if (!job || isBlog || nonBlogRelated.length === 0) return [];
+    const similarIds = new Set(similarPosts.map(p => s(p.id)));
+    return nonBlogRelated
+      .filter(p => !similarIds.has(s(p.id)))
       .sort((a, b) => getPostTime(b) - getPostTime(a))
       .slice(0, 6);
-  }, [job, relatedPosts, similarPosts]);
+  }, [job, isBlog, nonBlogRelated, similarPosts]);
+
+  const moreArticles = useMemo(() => {
+    if (!job || !isBlog || relatedPosts.length === 0) return [];
+    const currentBlogCat = s(blogCategoryValue).toLowerCase();
+    return relatedPosts
+      .filter(p => s((p as any)?.postType) === 'blog')
+      .sort((a, b) => {
+        const aMatch = Boolean(currentBlogCat && s((a as any)?.blogCategory).toLowerCase() === currentBlogCat);
+        const bMatch = Boolean(currentBlogCat && s((b as any)?.blogCategory).toLowerCase() === currentBlogCat);
+        if (aMatch !== bMatch) return aMatch ? -1 : 1;
+        return getPostTime(b) - getPostTime(a);
+      })
+      .slice(0, 4);
+  }, [job, isBlog, relatedPosts, blogCategoryValue]);
+
+  const latestOpportunities = useMemo(() => {
+    if (!job || !isBlog || nonBlogRelated.length === 0) return [];
+    return [...nonBlogRelated]
+      .sort((a, b) => getPostTime(b) - getPostTime(a))
+      .slice(0, 6);
+  }, [job, isBlog, nonBlogRelated]);
 
   const actionButtons = useMemo(() => {
-    if (!job) return [];
+    if (!job || isBlog) return [];
     const p = (job || {}) as any;
     const list: Array<{
       type: 'link' | 'whatsapp' | 'email';
@@ -933,44 +1047,62 @@ export const JobDetailPage = () => {
         <button onClick={() => navigate(-1)} style={{ padding: '6px', backgroundColor: '#f1f5f9', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
           <ChevronLeft size={20} color="#334155" />
         </button>
-        <span style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>Job Details</span>
+        <span style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>{isBlog ? 'Blog' : 'Job Details'}</span>
         <button onClick={handleShare} style={{ padding: '6px', backgroundColor: '#f1f5f9', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
           <Share2 size={18} color="#334155" />
         </button>
       </div>
 
       {/* Hero Card */}
-      <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '16px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', marginBottom: companyName && companyName !== 'Featured Employer' ? '4px' : '16px', lineHeight: '1.3', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{title}</h2>
-        {companyName && companyName !== 'Featured Employer' && (
-          <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>{companyName}</p>
-        )}
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginBottom: tagsList.length > 0 ? '8px' : '16px' }}>
-          <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <MapPin size={12} /> {displayLocation}
-          </span>
-          {jobType && (
-            <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Briefcase size={12} /> {jobType}
-            </span>
-          )}
-        </div>
-
-        {tagsList.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', marginBottom: '16px' }}>
-            {tagsList.map((tag, idx) => (
-              <span key={idx} style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '9999px', padding: '3px 10px', fontSize: '11px', fontWeight: 500 }}>
-                {tag}
+      {isBlog ? (
+        <div style={{ backgroundColor: 'white', borderRadius: '2px', padding: '20px', margin: '16px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', marginBottom: '12px', lineHeight: '1.3', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{title}</h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+            {(BLOG_CATEGORY_LABELS[blogCategoryValue] || blogCategoryValue) && (
+              <span style={{ backgroundColor: '#EEF2FF', color: '#1E3B8B', borderRadius: '2px', padding: '4px 10px', fontSize: '12px', fontWeight: 600 }}>
+                {BLOG_CATEGORY_LABELS[blogCategoryValue] || blogCategoryValue}
               </span>
-            ))}
+            )}
+            {formatBlogDate(job.createdAt) && (
+              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+                {formatBlogDate(job.createdAt)}
+              </span>
+            )}
           </div>
-        )}
-
-        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
-          <span style={{ fontSize: '16px', fontWeight: 600, color: '#E8B736' }}>{salaryText}</span>
         </div>
-      </div>
+      ) : (
+        <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '16px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', marginBottom: companyName && companyName !== 'Featured Employer' ? '4px' : '16px', lineHeight: '1.3', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{title}</h2>
+          {companyName && companyName !== 'Featured Employer' && (
+            <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>{companyName}</p>
+          )}
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', marginBottom: tagsList.length > 0 ? '8px' : '16px' }}>
+            <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <MapPin size={12} /> {displayLocation}
+            </span>
+            {jobType && (
+              <span style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '4px', padding: '4px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Briefcase size={12} /> {jobType}
+              </span>
+            )}
+          </div>
+
+          {tagsList.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', marginBottom: '16px' }}>
+              {tagsList.map((tag, idx) => (
+                <span key={idx} style={{ backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '9999px', padding: '3px 10px', fontSize: '11px', fontWeight: 500 }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
+            <span style={{ fontSize: '16px', fontWeight: 600, color: '#E8B736' }}>{salaryText}</span>
+          </div>
+        </div>
+      )}
 
       {/* Post Content */}
       <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '0 16px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: 'calc(100% - 32px)', boxSizing: 'border-box', overflow: 'hidden' }}>
@@ -980,7 +1112,7 @@ export const JobDetailPage = () => {
       </div>
 
       {/* Action Buttons: Rendered directly after description in page flow before About card */}
-      {actionButtons.length > 0 && (
+      {!isBlog && actionButtons.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', margin: '16px 0', padding: '0 16px', boxSizing: 'border-box' }}>
           {actionButtons.map((btn, idx) => (
             <a
@@ -1015,7 +1147,7 @@ export const JobDetailPage = () => {
       )}
 
       {/* Requirements */}
-      {requirements.length > 0 && (
+      {!isBlog && requirements.length > 0 && (
         <div style={{ backgroundColor: 'white', borderRadius: '4px', padding: '20px', margin: '0 16px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: 'calc(100% - 32px)', boxSizing: 'border-box' }}>
           <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Requirements</h3>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
@@ -1039,63 +1171,128 @@ export const JobDetailPage = () => {
         <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '4px', lineHeight: '1.6' }}>Connecting top talent with exciting opportunities across Nigeria and beyond.</p>
       </div>
 
-      {/* Similar Opportunities */}
-      {similarPosts.length > 0 && (
-        <section style={{ margin: '0 16px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '24px 0 12px' }}>
-            Similar opportunities
-          </h3>
-          <div>
-            {similarPosts.map(p => (
-              <div key={p.id} style={{ marginBottom: '12px' }}>
-                <Link
-                  to={postPath(p)}
-                  state={{ job: p }}
-                  style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
-                >
-                  <JobCard post={p} compact showExcerpt={false} />
-                </Link>
+      {isBlog ? (
+        <>
+          {/* More Articles */}
+          {moreArticles.length > 0 && (
+            <section style={{ margin: '0 16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '24px 0 12px' }}>
+                More articles
+              </h3>
+              <div>
+                {moreArticles.map(p => (
+                  <div key={p.id} style={{ marginBottom: '12px' }}>
+                    <Link
+                      to={postPath(p)}
+                      state={{ job: p }}
+                      style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <JobCard post={p} compact showExcerpt={false} />
+                    </Link>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            </section>
+          )}
 
-      {/* More Opportunities */}
-      {morePosts.length > 0 && (
-        <section style={{ margin: '0 16px 16px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '24px 0 12px' }}>
-            More opportunities
-          </h3>
-          <div>
-            {morePosts.map(p => (
-              <div key={p.id} style={{ marginBottom: '12px' }}>
+          {/* Latest Opportunities */}
+          {latestOpportunities.length > 0 && (
+            <section style={{ margin: '0 16px 16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '24px 0 12px' }}>
+                Latest opportunities
+              </h3>
+              <div>
+                {latestOpportunities.map(p => (
+                  <div key={p.id} style={{ marginBottom: '12px' }}>
+                    <Link
+                      to={postPath(p)}
+                      state={{ job: p }}
+                      style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <JobCard post={p} compact showExcerpt={false} />
+                    </Link>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: '8px', marginBottom: '8px' }}>
                 <Link
-                  to={postPath(p)}
-                  state={{ job: p }}
-                  style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                  to="/jobs"
+                  style={{
+                    fontSize: '14px',
+                    color: '#1E3B8B',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                  }}
                 >
-                  <JobCard post={p} compact showExcerpt={false} />
+                  See all opportunities
                 </Link>
               </div>
-            ))}
-          </div>
-          <div style={{ marginTop: '8px', marginBottom: '8px' }}>
-            <Link
-              to="/jobs"
-              style={{
-                fontSize: '14px',
-                color: '#1E3B8B',
-                fontWeight: 600,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center'
-              }}
-            >
-              See all opportunities
-            </Link>
-          </div>
-        </section>
+            </section>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Similar Opportunities */}
+          {similarPosts.length > 0 && (
+            <section style={{ margin: '0 16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '24px 0 12px' }}>
+                Similar opportunities
+              </h3>
+              <div>
+                {similarPosts.map(p => (
+                  <div key={p.id} style={{ marginBottom: '12px' }}>
+                    <Link
+                      to={postPath(p)}
+                      state={{ job: p }}
+                      style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <JobCard post={p} compact showExcerpt={false} />
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* More Opportunities */}
+          {morePosts.length > 0 && (
+            <section style={{ margin: '0 16px 16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: '24px 0 12px' }}>
+                More opportunities
+              </h3>
+              <div>
+                {morePosts.map(p => (
+                  <div key={p.id} style={{ marginBottom: '12px' }}>
+                    <Link
+                      to={postPath(p)}
+                      state={{ job: p }}
+                      style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <JobCard post={p} compact showExcerpt={false} />
+                    </Link>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+                <Link
+                  to="/jobs"
+                  style={{
+                    fontSize: '14px',
+                    color: '#1E3B8B',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  See all opportunities
+                </Link>
+              </div>
+            </section>
+          )}
+        </>
       )}
 
       <div style={{ margin: '0 16px' }}>

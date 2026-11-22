@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { collection, query, orderBy, onSnapshot, getDocs, where, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Post, CategoryConfig } from '../types';
+import { Post } from '../types';
 import AdUnit from '../components/AdUnit';
 import { useSeo, setJsonLd } from '../lib/seo';
 import { postPath } from '../lib/utils';
@@ -50,12 +50,11 @@ export const HomePage = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedSubcategory, setSelectedSubcategory] = useState('All');
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
   const [adConfig, setAdConfig] = useState<any>(null);
 
-  const [categories, setCategories] = useState<CategoryConfig[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [subcategories, setSubcategories] = useState<{ name: string; slug: string; order: number; active: boolean }[]>([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -63,7 +62,7 @@ export const HomePage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedSubcategory]);
 
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
@@ -121,21 +120,34 @@ export const HomePage = () => {
   }, []);
 
   useEffect(() => {
-    const q = query(
-      collection(db, 'categories'),
-      where('isActive', '==', true),
-      orderBy('displayOrder', 'asc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const cats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoryConfig));
-      setCategories(cats);
-      setCategoriesLoading(false);
-    }, (error) => {
-      console.error("Error fetching categories:", error);
-      setCategoriesLoading(false);
-    });
+    const fetchSubcategories = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'settings', 'subcategories'));
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data?.items)) {
+            const activeSorted = data.items
+              .filter((item: any) =>
+                item &&
+                item.active === true &&
+                typeof item.name === 'string' &&
+                typeof item.slug === 'string' &&
+                item.name.trim() !== '' &&
+                item.slug.trim() !== ''
+              )
+              .sort((a: any, b: any) => (Number(a.order) || 0) - (Number(b.order) || 0));
+            setSubcategories(activeSorted);
+            return;
+          }
+        }
+        setSubcategories([]);
+      } catch (error) {
+        console.error("Error fetching subcategories:", error);
+        setSubcategories([]);
+      }
+    };
 
-    return () => unsubscribe();
+    fetchSubcategories();
   }, []);
 
   useEffect(() => {
@@ -178,23 +190,28 @@ export const HomePage = () => {
     }
   };
 
-  const filteredPosts = posts.filter(post => {
+  const opportunityPosts = posts.filter(post => (post as any)?.postType !== 'blog');
+
+  const usedSubcategorySlugs = new Set(
+    opportunityPosts
+      .map(post => typeof (post as any)?.subcategory === 'string' ? (post as any).subcategory.toLowerCase().trim() : '')
+      .filter(Boolean)
+  );
+
+  const visibleSubcategories = subcategories.filter(sub =>
+    usedSubcategorySlugs.has(sub.slug.toLowerCase().trim())
+  );
+
+  const filteredPosts = opportunityPosts.filter(post => {
     const pAny = post as any;
     const comp = pAny.company || pAny.employer || '';
-    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = (post.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           comp.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || (() => {
-      if (!post.category) return false;
-      const postCat = String(post.category).toLowerCase().trim();
-      const sel = selectedCategory.toLowerCase().trim();
-      if (postCat === sel) return true;
-      const matchedCat = categories.find(c => c.slug.toLowerCase() === sel || c.name.toLowerCase() === sel);
-      if (matchedCat) {
-        return postCat === matchedCat.slug.toLowerCase() || postCat === matchedCat.name.toLowerCase();
-      }
-      return false;
+    const matchesSubcategory = selectedSubcategory === 'All' || (() => {
+      const postSub = typeof pAny.subcategory === 'string' ? pAny.subcategory.toLowerCase().trim() : '';
+      return Boolean(postSub && postSub === selectedSubcategory.toLowerCase().trim());
     })();
-    return matchesSearch && matchesCategory;
+    return matchesSearch && matchesSubcategory;
   });
 
   const totalPages = Math.ceil(filteredPosts.length / PAGE_SIZE) || 1;
@@ -245,43 +262,37 @@ export const HomePage = () => {
 
       <AdUnit slot="homepage-top" label="Advertisement" />
 
-      {/* Category Filter Chips */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4 pb-1">
-        <button
-          onClick={() => setSelectedCategory('All')}
-          className={`px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-all ${
-            selectedCategory === 'All' 
-              ? 'bg-[#1E3B8B] text-white font-semibold' 
-              : 'bg-white text-slate-600 shadow-sm hover:bg-slate-50'
-          }`}
-        >
-          All
-        </button>
-        {categoriesLoading ? (
-          <>
-            <div className="w-20 h-8 bg-white shadow-sm rounded-sm animate-pulse" />
-            <div className="w-24 h-8 bg-white shadow-sm rounded-sm animate-pulse" />
-            <div className="w-16 h-8 bg-white shadow-sm rounded-sm animate-pulse" />
-          </>
-        ) : (
-          categories.map((cat) => {
-            const isActive = selectedCategory === cat.slug;
+      {/* Sub-category Filter Chips */}
+      {visibleSubcategories.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4 pb-1">
+          <button
+            onClick={() => setSelectedSubcategory('All')}
+            className={`px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-all border ${
+              selectedSubcategory === 'All' 
+                ? 'bg-[#1E3B8B] text-white border-[#1E3B8B] font-semibold' 
+                : 'bg-white text-slate-600 border-slate-200 shadow-sm hover:bg-slate-50'
+            }`}
+          >
+            All
+          </button>
+          {visibleSubcategories.map((sub) => {
+            const isActive = selectedSubcategory.toLowerCase().trim() === sub.slug.toLowerCase().trim();
             return (
               <button
-                key={cat.id || cat.slug}
-                onClick={() => setSelectedCategory(cat.slug)}
-                className={`px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-all ${
+                key={sub.slug}
+                onClick={() => setSelectedSubcategory(sub.slug)}
+                className={`px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-all border ${
                   isActive 
-                    ? 'bg-[#1E3B8B] text-white font-semibold' 
-                    : 'bg-white text-slate-600 shadow-sm hover:bg-slate-50'
+                    ? 'bg-[#1E3B8B] text-white border-[#1E3B8B] font-semibold' 
+                    : 'bg-white text-slate-600 border-slate-200 shadow-sm hover:bg-slate-50'
                 }`}
               >
-                {cat.name}
+                {sub.name}
               </button>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
 
       {/* Section Title */}
       <div className="flex items-center justify-between mb-3">

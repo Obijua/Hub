@@ -23,6 +23,24 @@ import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import { useSeo } from '../lib/seo';
 
+const BLOG_CATEGORY_LABELS: Record<string, string> = {
+  'how-to': 'How-to guides',
+  'grants-news': 'Grants & scholarships news',
+  'career-development': 'Career development',
+  'news': 'News',
+};
+
+const getChipLabel = (post: Post): string | null => {
+  const pAny = post as any;
+  if (pAny?.postType === 'blog') {
+    const blogCat = typeof pAny.blogCategory === 'string' ? pAny.blogCategory.trim() : '';
+    return BLOG_CATEGORY_LABELS[blogCat] || blogCat || null;
+  }
+  const cat = typeof post.category === 'string' ? post.category.trim() : '';
+  if (!cat) return null;
+  return cat.replace(/-/g, ' ');
+};
+
 export const AdminPosts = () => {
   useSeo({
     title: 'Manage Posts | Hub & Jobs',
@@ -80,9 +98,11 @@ export const AdminPosts = () => {
   };
 
   const filteredPosts = posts.filter(post => {
-    const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         post.slug.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || post.category === categoryFilter;
+    const title = typeof post.title === 'string' ? post.title : '';
+    const slug = typeof post.slug === 'string' ? post.slug : '';
+    const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         slug.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || (post.category ?? '') === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
@@ -196,9 +216,18 @@ export const AdminPosts = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <span className="bg-blue-50 text-primary text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-widest">
-                    {post.category.replace('-', ' ')}
-                  </span>
+                  {(() => {
+                    const chipLabel = getChipLabel(post);
+                    const isBlog = (post as any)?.postType === 'blog';
+                    return chipLabel ? (
+                      <span className={cn(
+                        "bg-blue-50 text-primary text-[10px] font-black px-3 py-1 rounded-sm tracking-widest",
+                        !isBlog && "uppercase"
+                      )}>
+                        {chipLabel}
+                      </span>
+                    ) : null;
+                  })()}
                   <div className="flex items-center text-xs font-bold text-gray-400 px-3 py-1">
                     <Eye className="h-3 w-3 mr-1 text-primary" />
                     {post.views || 0}
@@ -294,9 +323,18 @@ export const AdminPosts = () => {
                       </div>
                     </td>
                     <td className="px-8 py-6">
-                      <span className="bg-blue-50 text-primary text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-widest">
-                        {post.category.replace('-', ' ')}
-                      </span>
+                      {(() => {
+                        const chipLabel = getChipLabel(post);
+                        const isBlog = (post as any)?.postType === 'blog';
+                        return chipLabel ? (
+                          <span className={cn(
+                            "bg-blue-50 text-primary text-[10px] font-black px-3 py-1 rounded-sm tracking-widest",
+                            !isBlog && "uppercase"
+                          )}>
+                            {chipLabel}
+                          </span>
+                        ) : null;
+                      })()}
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center text-sm font-bold text-gray-500">

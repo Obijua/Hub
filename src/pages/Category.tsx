@@ -244,12 +244,12 @@ export const Category = () => {
   }, [slug, initialCategory]);
 
   const filteredAndSortedPosts = useMemo(() => {
-    let result = [...posts];
+    let result = posts.filter(post => (post as any)?.postType !== 'blog');
 
     if (searchTerm) {
       result = result.filter(post => 
-        post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.description.toLowerCase().includes(searchTerm.toLowerCase())
+        (post.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (post.description || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 

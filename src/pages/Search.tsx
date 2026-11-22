@@ -39,11 +39,15 @@ export const SearchPage = () => {
         const querySnapshot = await getDocs(q);
         const allPosts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
-        const filtered = allPosts.filter(post => 
-          post.title.toLowerCase().includes(queryParam.toLowerCase()) ||
-          post.description.toLowerCase().includes(queryParam.toLowerCase()) ||
-          post.tags.some(tag => tag.toLowerCase().includes(queryParam.toLowerCase()))
-        );
+        const filtered = allPosts.filter(post => {
+          if ((post as any)?.postType === 'blog') return false;
+          const qLower = queryParam.toLowerCase();
+          return (
+            (post.title || '').toLowerCase().includes(qLower) ||
+            (post.description || '').toLowerCase().includes(qLower) ||
+            (Array.isArray(post.tags) && post.tags.some(tag => String(tag).toLowerCase().includes(qLower)))
+          );
+        });
         
         setPosts(filtered);
       } catch (error) {

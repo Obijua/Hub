@@ -9,30 +9,42 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  componentStack: string | null;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
-    error: null
+    error: null,
+    componentStack: null
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, componentStack: null };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    this.setState({ componentStack: errorInfo?.componentStack || null });
   }
 
   public componentDidUpdate(prevProps: Props) {
     if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
-      this.setState({ hasError: false, error: null });
+      this.setState({ hasError: false, error: null, componentStack: null });
     }
   }
 
   public render() {
     if (this.state.hasError) {
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+      const isLiveDomain = hostname === 'hubandjobs.com' || hostname === 'www.hubandjobs.com';
+      const errorMessage = this.state.error?.message || String(this.state.error || 'Unknown error');
+      const stackLines = (this.state.componentStack || '')
+        .split('\n')
+        .filter((line) => line.trim() !== '')
+        .slice(0, 8)
+        .join('\n');
+
       return (
         <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div
@@ -69,7 +81,7 @@ export class ErrorBoundary extends Component<Props, State> {
               </button>
               <Link
                 to="/"
-                onClick={() => this.setState({ hasError: false, error: null })}
+                onClick={() => this.setState({ hasError: false, error: null, componentStack: null })}
                 style={{
                   backgroundColor: '#f1f5f9',
                   color: '#1E3B8B',
@@ -87,6 +99,27 @@ export class ErrorBoundary extends Component<Props, State> {
                 Back to home
               </Link>
             </div>
+            {!isLiveDomain && (
+              <div
+                style={{
+                  marginTop: '16px',
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  color: '#64748B',
+                  backgroundColor: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  padding: '10px',
+                  borderRadius: '2px',
+                  overflowX: 'auto',
+                  wordBreak: 'break-word',
+                  whiteSpace: 'pre-wrap',
+                  textAlign: 'left'
+                }}
+              >
+                {errorMessage}
+                {stackLines ? `\n${stackLines}` : ''}
+              </div>
+            )}
           </div>
         </div>
       );
