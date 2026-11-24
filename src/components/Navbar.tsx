@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Briefcase, Menu, X, Sun, LogOut, Bookmark } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,6 +12,7 @@ import { useBookmarks } from '../hooks/useBookmarks';
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toggleTheme } = useTheme();
   const { user, profile } = useAuth();
   const { bookmarks } = useBookmarks();
@@ -54,9 +55,17 @@ export const Navbar = () => {
     { name: 'About', path: '/about' },
   ];
 
+  const desktopLinks = [
+    { name: 'Home', path: '/' },
+    { name: 'Jobs', path: '/jobs' },
+    { name: 'Blog', path: '/blog' },
+    { name: 'CV Builder', path: '/documents/cv' },
+    user ? { name: 'Profile', path: '/profile' } : { name: 'Log In', path: '/login' },
+  ];
+
   return (
     <nav style={{ backgroundColor: '#1E3B8B' }} className="sticky top-0 z-50 border-b border-white/10 h-16">
-      <div className="max-w-7xl mx-auto px-4 h-full">
+      <div className="max-w-7xl md:max-w-[1100px] mx-auto px-4 h-full">
         <div className="flex items-center justify-between h-full">
           {/* Logo - Top Left */}
           <Link to="/" className="flex items-center gap-2">
@@ -77,6 +86,37 @@ export const Navbar = () => {
               })()}
             </span>
           </Link>
+
+          {/* Desktop Inline Links */}
+          <div className="hidden md:flex items-center gap-6">
+            {desktopLinks.map((link) => {
+              const isActive =
+                location.pathname === link.path ||
+                (link.path !== '/' && location.pathname.startsWith(link.path + '/'));
+              return (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className="whitespace-nowrap rounded-sm hover:opacity-85 transition-opacity"
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: '#FFFFFF',
+                    ...(isActive
+                      ? {
+                          textDecorationLine: 'underline',
+                          textDecorationColor: '#E8B736',
+                          textDecorationThickness: '2px',
+                          textUnderlineOffset: '6px',
+                        }
+                      : { textDecoration: 'none' }),
+                  }}
+                >
+                  {link.name}
+                </Link>
+              );
+            })}
+          </div>
 
           {/* Icons & Menu - Top Right */}
           <div className="flex items-center space-x-1">

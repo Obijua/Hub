@@ -159,14 +159,17 @@ const AppRoutes = () => {
     );
   }
 
+  const isWideLayout = location.pathname.startsWith('/admin') || location.pathname.startsWith('/documents');
+
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-950 md:bg-[#EEF2FF] md:dark:bg-[#EEF2FF] transition-colors duration-300">
       <AnnouncementBanner />
       <Navbar />
       <AdSlot zone="navbar-banner-after" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" />
       <main className="flex-grow">
-        <ErrorBoundary resetKey={location.pathname} key={location.pathname}>
-          <Routes>
+        <div className={isWideLayout ? 'w-full md:mx-auto md:max-w-[1100px]' : 'w-full md:mx-auto md:max-w-[760px]'}>
+          <ErrorBoundary resetKey={location.pathname} key={location.pathname}>
+            <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/jobs" element={<JobsPage />} />
@@ -232,8 +235,9 @@ const AppRoutes = () => {
               } 
             />
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </ErrorBoundary>
+            </Routes>
+          </ErrorBoundary>
+        </div>
       </main>
       <AdSlot zone="before-footer" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
