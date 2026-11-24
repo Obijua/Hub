@@ -42,7 +42,7 @@ const BundleBuilder = () => {
   const handleGetBundle = () => {
     if (!auth.currentUser) {
       toast.error('Please sign in or create an account to get the startup bundle');
-      navigate('/admin/login?mode=signup', { state: { mode: 'signup', from: location.pathname } });
+      navigate('/signup', { state: { mode: 'signup', from: location.pathname } });
       return;
     }
     setShowEmailModal(true);

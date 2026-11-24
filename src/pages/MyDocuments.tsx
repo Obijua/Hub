@@ -85,7 +85,7 @@ export const MyDocuments = () => {
             Your purchased documents are saved 
             to your account.
           </p>
-          <Link to="/admin/login"
+          <Link to="/login"
             className="block py-3 bg-primary text-white 
               font-black rounded-xl text-center">
             Sign In

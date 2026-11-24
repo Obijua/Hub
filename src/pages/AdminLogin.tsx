@@ -3,7 +3,7 @@ import { auth, db } from '../lib/firebase';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Briefcase, LogIn, Mail, Lock, AlertCircle, User } from 'lucide-react';
+import { Briefcase, LogIn, Mail, Lock, AlertCircle, User, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useSeo } from '../lib/seo';
 
@@ -22,13 +22,16 @@ export const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const wantsSignUp = () => new URLSearchParams(location.search).get('mode') === 'signup' || location.state?.mode === 'signup';
+  const wantsSignUp = () =>
+    location.pathname === '/signup' ||
+    new URLSearchParams(location.search).get('mode') === 'signup' ||
+    location.state?.mode === 'signup';
   const [isSignUp, setIsSignUp] = useState(wantsSignUp());
   const [fullName, setFullName] = useState('');
 
   useEffect(() => {
-    if (wantsSignUp()) setIsSignUp(true);
-  }, [location.key, location.search]);
+    setIsSignUp(wantsSignUp());
+  }, [location.key, location.pathname, location.search]);
 
   const ensureUserDoc = async (user: any) => {
     const docRef = doc(db, 'users', user.uid);
@@ -131,44 +134,44 @@ export const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-[#EEF2FF]">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full bg-white rounded-3xl shadow-2xl border border-gray-100 p-10"
+        className="max-w-md w-full bg-white rounded-sm shadow-sm border border-[#E2E8F0] p-5"
       >
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-3xl mb-6">
-            <Briefcase className="h-10 w-10 text-primary" />
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-[#EEF2FF] rounded-sm mb-4">
+            <Briefcase className="h-7 w-7 text-[#1E3B8B]" />
           </div>
-          <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">{isSignUp ? 'Create Account' : 'Sign In'}</h1>
-          <p className="text-gray-500">{isSignUp ? 'Join Hub & Jobs in a minute' : 'Access your Hub & Jobs account'}</p>
+          <h1 className="text-2xl font-black text-gray-900 mb-1 tracking-tight">{isSignUp ? 'Create Account' : 'Sign In'}</h1>
+          <p className="text-sm text-gray-500">{isSignUp ? 'Join Hub & Jobs in a minute' : 'Access your Hub & Jobs account'}</p>
         </div>
 
         {error && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm mb-8 border border-red-100 flex items-center"
+            className="bg-red-50 text-red-600 p-3 rounded-sm text-sm mb-6 border border-red-100 flex items-center"
           >
             <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
             {error}
           </motion.div>
         )}
 
-        <form onSubmit={isSignUp ? handleSignUp : handleEmailLogin} className="space-y-6">
+        <form onSubmit={isSignUp ? handleSignUp : handleEmailLogin} className="space-y-4">
           {isSignUp && (
             <div>
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Full Name</label>
               <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
                   type="text"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Your full name"
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all"
+                  className="w-full h-12 pl-11 pr-4 bg-white border border-[#E2E8F0] rounded-sm text-[16px] outline-none focus:ring-2 focus:ring-[#1E3B8B] transition-all"
                 />
               </div>
             </div>
@@ -177,14 +180,14 @@ export const AdminLogin = () => {
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Email Address</label>
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@hubandjobs.com"
-                className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all"
+                placeholder="you@example.com"
+                className="w-full h-12 pl-11 pr-4 bg-white border border-[#E2E8F0] rounded-sm text-[16px] outline-none focus:ring-2 focus:ring-[#1E3B8B] transition-all"
               />
             </div>
           </div>
@@ -192,14 +195,14 @@ export const AdminLogin = () => {
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Password</label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all"
+                className="w-full h-12 pl-11 pr-4 bg-white border border-[#E2E8F0] rounded-sm text-[16px] outline-none focus:ring-2 focus:ring-[#1E3B8B] transition-all"
               />
             </div>
           </div>
@@ -207,10 +210,10 @@ export const AdminLogin = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-primary text-white font-black rounded-2xl hover:bg-blue-900 transition-all shadow-xl shadow-primary/20 disabled:opacity-50"
+            className="w-full h-12 flex items-center justify-center gap-3 px-6 bg-[#1E3B8B] text-white font-black rounded-sm hover:bg-blue-900 transition-all disabled:opacity-50"
           >
             {loading ? (
-              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <>
                 <LogIn className="h-5 w-5" /> {isSignUp ? 'Create Account' : 'Sign In'}
@@ -219,7 +222,7 @@ export const AdminLogin = () => {
           </button>
         </form>
 
-        <div className="relative my-10">
+        <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-gray-100"></div>
           </div>
@@ -231,20 +234,20 @@ export const AdminLogin = () => {
         <button
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-white border border-gray-100 rounded-2xl text-gray-700 font-bold hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
+          className="w-full h-12 flex items-center justify-center gap-3 px-6 bg-white border border-[#E2E8F0] rounded-sm text-gray-700 font-bold hover:bg-gray-50 transition-all disabled:opacity-50"
         >
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
           Google Account
         </button>
 
-        <p className="text-center text-sm text-gray-500 mt-8">
+        <p className="text-center text-sm text-gray-500 mt-6">
           {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
           <button type="button" onClick={() => { setIsSignUp(!isSignUp); setError(''); }} style={{ color: '#1E3B8B', fontWeight: 700 }}>
             {isSignUp ? 'Sign In' : 'Sign Up'}
           </button>
         </p>
 
-        <div className="mt-10 pt-8 border-t border-gray-50 text-center">
+        <div className="mt-6 pt-5 border-t border-gray-100 text-center">
           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-relaxed">
             Welcome to Hub & Jobs. <br />
             Your Hub for Jobs & Opportunities.

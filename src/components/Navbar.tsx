@@ -182,7 +182,7 @@ export const Navbar = () => {
                       </button>
                     </div>
                   ) : (
-                    <Link to="/admin/login" onClick={() => setIsOpen(false)} style={{ fontSize: '15px', paddingTop: '12px', paddingBottom: '12px' }} className="block w-full bg-[#1E3B8B] text-white rounded-sm font-bold text-center">
+                    <Link to="/login" onClick={() => setIsOpen(false)} style={{ fontSize: '15px', paddingTop: '12px', paddingBottom: '12px' }} className="block w-full bg-[#1E3B8B] text-white rounded-sm font-bold text-center">
                       Log In
                     </Link>
                   )}

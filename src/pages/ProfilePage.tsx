@@ -87,13 +87,13 @@ export const ProfilePage = () => {
           <h2 className="font-bold text-lg text-slate-900 mb-1">Sign in to your profile</h2>
           <p className="text-sm text-slate-500 mb-6">Track applications and build your CV.</p>
           <button
-            onClick={() => navigate('/admin/login', { state: { from: '/profile' } })}
+            onClick={() => navigate('/login', { state: { from: '/profile' } })}
             className="w-full bg-[#1E3B8B] text-white font-semibold py-2.5 rounded-sm mb-3 hover:bg-[#162d6e] transition-colors"
           >
             Sign In
           </button>
           <button
-            onClick={() => navigate('/admin/login?mode=signup', { state: { mode: 'signup', from: '/profile' } })}
+            onClick={() => navigate('/signup', { state: { mode: 'signup', from: '/profile' } })}
             className="w-full border border-[#1E3B8B] text-[#1E3B8B] font-semibold py-2.5 rounded-sm hover:bg-blue-50 transition-colors"
           >
             Create Account

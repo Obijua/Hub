@@ -275,7 +275,7 @@ const BusinessPlanBuilder = () => {
   const handleDownloadPDF = async () => {
     if (!auth.currentUser) {
       toast.error('Please sign in or create an account to download your document');
-      navigate('/admin/login?mode=signup', { state: { mode: 'signup', from: location.pathname } });
+      navigate('/signup', { state: { mode: 'signup', from: location.pathname } });
       return;
     }
     const element = document.getElementById('business-plan-document-preview');
@@ -306,7 +306,7 @@ const BusinessPlanBuilder = () => {
   const handlePay = () => {
     if (!auth.currentUser) {
       toast.error('Please sign in or create an account to download your document');
-      navigate('/admin/login?mode=signup', { state: { mode: 'signup', from: location.pathname } });
+      navigate('/signup', { state: { mode: 'signup', from: location.pathname } });
       return;
     }
     // Pre-fill email from user profile if state is empty
